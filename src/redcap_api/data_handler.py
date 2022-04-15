@@ -13,10 +13,10 @@ class DataHandler:
 
     
     def move_data(self):
-        if self.src_project.set_primary_key() == False:
+        if not self.src_project.set_primary_key():
             return
 
-        if self.src_project.export_record_ids() == False:
+        if not self.src_project.export_record_ids():
             return
 
         num_records = len(self.src_project.record_ids)
@@ -49,20 +49,20 @@ class DataHandler:
             else:
                 records = self.src_project.export_records_csv(self.src_project.record_ids[begin:end])
 
-            if records != False:
+            if records:
                 # Validate the records
-                if self.validate_data(records) == False:
+                if not self.validate_data(records):
                     continue
 
                 # Import the valid records to destination project
                 num_imported = self.dest_project.import_records_csv(records)
-                if num_imported == False:
+                if not num_imported:
                     break
 
                 # Delete the records from source project
                 if Configs.configs['move_records'] == 1:
                     num_deleted = self.src_project.delete_records(self.src_project.record_ids[begin:end])
-                    if num_deleted == False:
+                    if not num_deleted:
                         break
             else:
                 break

@@ -23,7 +23,7 @@ def main():
     if Configs.configs['src_api_token'] == Configs.configs['dest_api_token']:
         print('Error: source and destination projects cannot be the same, please check API tokens')
         exit(0)
-        
+
     # Initialize source and destination REDCap connections
     src_project = REDCapConnection(Configs.configs['src_api_token'], Configs.configs['src_api_url'])
     dest_project = REDCapConnection(Configs.configs['dest_api_token'], Configs.configs['dest_api_url'])

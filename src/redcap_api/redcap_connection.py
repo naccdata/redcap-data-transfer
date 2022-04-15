@@ -25,8 +25,8 @@ class REDCapConnection:
 
         result = requests.post(self.url, data=data)
         if result.status_code != HTTPStatus.OK:
-            print('HTTP Status: ' + str(result.status_code))
-            print(result.reason)
+            print('Error: Failed to retrive the REDCap project primary key')
+            print('HTTP Status: ', str(result.status_code), result.reason)
             return False
         
         # Read the result into a pandas data frame and get the primary key
@@ -51,8 +51,8 @@ class REDCapConnection:
 
         result = requests.post(self.url, data=data)
         if result.status_code != HTTPStatus.OK:
-            print('HTTP Status: ' + str(result.status_code))
-            print(result.reason)
+            print('Error: Failed to retrive the record IDs')
+            print('HTTP Status: ', str(result.status_code), result.reason)
             return False
         
         self.record_ids = result.text.splitlines()
@@ -81,11 +81,15 @@ class REDCapConnection:
 
         result = requests.post(self.url, data=data)
         if result.status_code != HTTPStatus.OK:
-            print('HTTP Status: ' + str(result.status_code))
-            print(result.reason)
+            print('Error: Failed to export records')
+            print('HTTP Status: ', str(result.status_code), result.reason)
             return False
         
-        #print(result.text)
+        #print(result.status_code, result.text)
+        if not result.text.strip():
+            print('Warning: No records returned for the export request')
+            print('Requested record IDs: ', record_ids)
+            return False
 
         return result.text
 
@@ -107,8 +111,8 @@ class REDCapConnection:
 
         result = requests.post(self.url, data=data)
         if result.status_code != HTTPStatus.OK:
-            print('HTTP Status: ' + str(result.status_code))
-            print(result.reason)
+            print('Error: Failed to import records')
+            print('HTTP Status: ', str(result.status_code), result.reason)
             return False
         
         num_records = json.loads(result.text)['count']
@@ -133,8 +137,8 @@ class REDCapConnection:
 
         result = requests.post(self.url, data=data)
         if result.status_code != HTTPStatus.OK:
-            print('HTTP Status: ' + str(result.status_code))
-            print(result.reason)
+            print('Error: Failed to delete records')
+            print('HTTP Status: ', str(result.status_code), result.reason)
             return False
         
         print('Number of records deleted: ', result.text)
