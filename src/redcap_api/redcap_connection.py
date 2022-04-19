@@ -5,6 +5,8 @@ import io
 import pandas as pd
 import json
 
+from configs import Configs
+
 # This class implements the REDCap API methods
 
 class REDCapConnection:
@@ -130,7 +132,7 @@ class REDCapConnection:
 
 
     # Find the list of unique record ids
-    def export_record_ids(self):
+    def export_record_ids(self, events=None):
         data = {
             'token': self.token,
             'content': 'record',
@@ -141,14 +143,16 @@ class REDCapConnection:
             'returnFormat': 'json'
         }
 
+        # If set of events specified, export record IDs only for those events.
+        if events:
+            for i in range(len(events)):
+                data[f"events[{ i }]"] = events[i].strip()
+
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             print('Error: Failed to retrive the record IDs')
             print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
             return False
-        
-        #self.record_ids = response.text.splitlines()
-        #self.record_ids.pop(0) #remove the header
 
         # Read the response into a pandas data frame
         dfObj = pd.read_csv(io.StringIO(response.text))
@@ -163,7 +167,7 @@ class REDCapConnection:
 
 
     # Export records in CSV format
-    def export_records_csv(self, record_ids=None):
+    def export_records_csv(self, record_ids=None, forms=None, events=None):
         data = {
             'token': self.token,
             'content': 'record',
@@ -177,6 +181,26 @@ class REDCapConnection:
         if record_ids:
             for i in range(len(record_ids)):
                 data[f"records[{ i }]"] = record_ids[i]
+
+        add_pk_field = False
+
+        # If set of forms specified, export records only from those forms.
+        if forms:
+            for i in range(len(forms)):
+                data[f"forms[{ i }]"] = forms[i].strip()
+            add_pk_field = True
+
+        # If set of events specified, export records only for those events.
+        if events:
+            for i in range(len(events)):
+                data[f"events[{ i }]"] = events[i].strip()
+            add_pk_field = True
+
+        # If exporting only subset of forms or events, make sure to request the primary key field, need it for importing data to the destination project
+        if add_pk_field:
+            data['fields[0]'] = self.primary_key
+
+        #print(data)
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:

@@ -17,7 +17,7 @@ def main():
     if len(sys.argv) > 1:
         conf_file = sys.argv[1]
 
-    # Load the configurations
+    # Load and validate the configurations
     Configs.load_configs(conf_file)
 
     if Configs.configs['src_api_token'] == Configs.configs['dest_api_token']:

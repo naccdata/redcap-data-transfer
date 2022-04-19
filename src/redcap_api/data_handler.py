@@ -59,10 +59,18 @@ class DataHandler:
 
     # Move records from source project to destination project
     def move_data(self):
+        forms = None
+        if 'forms' in Configs.configs and Configs.configs['forms'].strip():
+            forms = [x.strip() for x in Configs.configs['forms'].split(',')]
+        
+        events = None
+        if 'events' in Configs.configs and Configs.configs['events'].strip():
+            events = [x.strip() for x in Configs.configs['events'].split(',')]
+
         if not self.src_project.set_primary_key():
             return
 
-        if not self.src_project.export_record_ids():
+        if not self.src_project.export_record_ids(events):
             return
 
         num_records = len(self.src_project.record_ids)
@@ -90,10 +98,10 @@ class DataHandler:
                 end = num_records
 
             # Export a batch of records from the source project
-            if iterations == 1:
-                records = self.src_project.export_records_csv() #export all, no need to specify records IDs
+            if (iterations == 1) and (not forms) and (not events):
+                records = self.src_project.export_records_csv() #export all
             else:
-                records = self.src_project.export_records_csv(self.src_project.record_ids[begin:end])
+                records = self.src_project.export_records_csv(self.src_project.record_ids[begin:end], forms, events)
 
             #print(records)
             
@@ -112,8 +120,8 @@ class DataHandler:
                     num_deleted = self.src_project.delete_records(self.src_project.record_ids[begin:end])
                     if not num_deleted:
                         break
-            else:
-                break
+            #else:
+            #    break
             
             i += 1
 
