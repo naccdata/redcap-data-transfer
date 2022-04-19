@@ -28,9 +28,11 @@ def main():
     src_project = REDCapConnection(Configs.configs['src_api_token'], Configs.configs['src_api_url'])
     dest_project = REDCapConnection(Configs.configs['dest_api_token'], Configs.configs['dest_api_url'])
 
-    # Move data
     data_handler = DataHandler(src_project, dest_project)
-    data_handler.move_data()
+
+    # If source and destination project settings matches, move/copy the records from source project to destination project
+    if data_handler.compare_project_settings():
+        data_handler.move_data()
     
 def usage():
     print('Usage: python3 data_validator.py <configuration file path>')

@@ -12,6 +12,52 @@ class DataHandler:
         self.dest_project = dest_prj
 
     
+    # Compare the source and destination project settings
+    def compare_project_settings(self):
+        # Compare source and destination project data-dictionaries, cannot be empty
+        src_dict = self.src_project.export_data_dictionary()
+        dest_dict = self.dest_project.export_data_dictionary()
+
+        if (not src_dict) or (not dest_dict) or (src_dict != dest_dict):
+            print('Error: source and destination data dictionaries are empty or do not match')
+            return False
+
+        # Compare source and destination project arms definitions
+        src_arms = self.src_project.export_arms()
+        dest_arms = self.dest_project.export_arms()
+
+        if src_arms != dest_arms:
+            print('Error: source and destination project arms definitions do not match')
+            return False
+
+        # Compare source and destination project event definitions
+        src_events = self.src_project.export_events()
+        dest_events = self.dest_project.export_events()
+
+        if src_events != dest_events:
+            print('Error: source and destination project event definitions do not match')
+            return False
+
+        # Compare source and destination project form-event mappings
+        src_evnt_map = self.src_project.export_form_event_mappings()
+        dest_evnt_map = self.dest_project.export_form_event_mappings()
+
+        if src_evnt_map != dest_evnt_map:
+            print('Error: source and destination project form-event mappings do not match')
+            return False
+
+        # Compare source and destination project repeating instrument definitons
+        src_rpt_ins = self.src_project.export_repeating_instruments()
+        dest_rpt_ins = self.dest_project.export_repeating_instruments()
+
+        if src_rpt_ins != dest_rpt_ins:
+            print('Error: source and destination project repeating instrument definitions do not match')
+            return False
+
+        return True
+
+
+    # Move records from source project to destination project
     def move_data(self):
         if not self.src_project.set_primary_key():
             return
@@ -21,8 +67,8 @@ class DataHandler:
 
         num_records = len(self.src_project.record_ids)
         
-        if num_records <=0:
-            print('No records available in the source project')
+        if num_records <= 0:
+            print('Warning: No records available in the source project')
             exit(0)
 
         iterations = 1
@@ -49,6 +95,8 @@ class DataHandler:
             else:
                 records = self.src_project.export_records_csv(self.src_project.record_ids[begin:end])
 
+            #print(records)
+            
             if records:
                 # Validate the records
                 if not self.validate_data(records):
@@ -66,8 +114,11 @@ class DataHandler:
                         break
             else:
                 break
+            
             i += 1
 
+
+    # Entry point to the data validation
     def validate_data(self, records):
         #TODO - implement data validation rules
         return True
