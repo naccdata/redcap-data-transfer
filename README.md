@@ -1,7 +1,7 @@
 # data-validator
 Module for validating submitted form data in a source REDCap project and copy/move them to a destination REDCap project
 
-Usage: python3 data_validator.py \<configuration file path\>
+Usage: python3 data_validator.py \<configuration file path\> \<log file path\>
 
 Configuration file should be in the following JSON format
 
