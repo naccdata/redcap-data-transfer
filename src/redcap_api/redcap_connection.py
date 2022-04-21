@@ -1,9 +1,10 @@
 from http import HTTPStatus
-from urllib import response
+from re import L
 import requests
 import io
 import pandas as pd
 import json
+import logging
 
 from configs import Configs
 
@@ -29,8 +30,8 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
             
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to export the data dictionary')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to export the data dictionary')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
         return response.text
@@ -46,8 +47,8 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to export arms definitions')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to export arms definitions')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
         return response.text
@@ -63,8 +64,8 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to export events definitions')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to export events definitions')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
         return response.text
@@ -82,8 +83,8 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
             
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to export the form - event mappings')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to export the form - event mappings')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
         return response.text
@@ -101,8 +102,8 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
             
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to export the repeating instruments definitions')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to export the repeating instruments definitions')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
         return response.text
@@ -119,14 +120,14 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to retrive the REDCap project primary key')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to retrive the REDCap project primary key')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
         
         # Read the response into a pandas data frame and get the primary key
         self.fields = pd.read_csv(io.StringIO(response.text))
         self.primary_key = self.fields.at[0, 'export_field_name']
-        print('Primary key of the REDCap project: ', self.primary_key)
+        logging.info(f'Primary key of the REDCap project: {self.primary_key}')
 
         return True
 
@@ -150,8 +151,8 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to retrive the record IDs')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to retrive the record IDs')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
         # Read the response into a pandas data frame
@@ -204,14 +205,14 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to export records')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to export records')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
         
         #print(response.status_code, response.text)
         if not response.text.strip():
-            print('Warning: No records returned for the export request')
-            print('Requested record IDs: ', record_ids)
+            logging.warning('No records returned for the export request')
+            logging.info(f'Requested record IDs: {record_ids}')
             return False
 
         return response.text
@@ -231,11 +232,11 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to import arms')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to import arms')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
-        print('Number of arms imported: ', response.text)
+        logging.info(f'Number of arms imported: {response.text}')
         return response.text
 
 
@@ -253,11 +254,11 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to import events')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to import events')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
-        print('Number of events imported: ', response.text)
+        logging.info(f'Number of events imported: {response.text}')
         return response.text
 
 
@@ -273,11 +274,11 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to import data dictionary')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to import data dictionary')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
-        print('Number of fields imported: ', response.text)
+        logging.info(f'Number of fields imported: {response.text}')
         return response.text
     
     
@@ -293,11 +294,11 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to import form event mappings')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to import form event mappings')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
-        print('Number of form-event mappings imported: ', response.text)
+        logging.info(f'Number of form-event mappings imported: {response.text}')
         return response.text
 
 
@@ -313,11 +314,11 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to import form event mappings')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to import form event mappings')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
 
-        print('Number of repeating instruments/events imported: ', response.text)
+        logging.info(f'Number of repeating instruments/events imported: {response.text}')
         return response.text
 
 
@@ -338,12 +339,12 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to import records')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to import records')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
         
         num_records = json.loads(response.text)['count']
-        print('Number of records imported: ', num_records)
+        logging.info(f'Number of records imported: {num_records}')
 
         return num_records
 
@@ -364,11 +365,11 @@ class REDCapConnection:
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
-            print('Error: Failed to delete records')
-            print('HTTP Status: ', str(response.status_code), response.reason, ' : ', response.text)
+            logging.error('Failed to delete records')
+            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
             return False
         
-        print('Number of records deleted: ', response.text)
+        logging.info(f'Number of records deleted: {response.text}')
 
         return response.text
 

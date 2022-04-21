@@ -1,5 +1,5 @@
-
 import math
+import logging
 
 from configs import Configs
 from redcap_api.redcap_connection import REDCapConnection
@@ -19,7 +19,7 @@ class DataHandler:
         dest_dict = self.dest_project.export_data_dictionary()
 
         if (not src_dict) or (not dest_dict) or (src_dict != dest_dict):
-            print('Error: source and destination data dictionaries are empty or do not match')
+            logging.error('Source and destination data dictionaries are empty or do not match')
             return False
 
         # Compare source and destination project arms definitions
@@ -27,7 +27,7 @@ class DataHandler:
         dest_arms = self.dest_project.export_arms()
 
         if src_arms != dest_arms:
-            print('Error: source and destination project arms definitions do not match')
+            logging.error('Source and destination project arms definitions do not match')
             return False
 
         # Compare source and destination project event definitions
@@ -35,7 +35,7 @@ class DataHandler:
         dest_events = self.dest_project.export_events()
 
         if src_events != dest_events:
-            print('Error: source and destination project event definitions do not match')
+            logging.error('Source and destination project event definitions do not match')
             return False
 
         # Compare source and destination project form-event mappings
@@ -43,7 +43,7 @@ class DataHandler:
         dest_evnt_map = self.dest_project.export_form_event_mappings()
 
         if src_evnt_map != dest_evnt_map:
-            print('Error: source and destination project form-event mappings do not match')
+            logging.error('Source and destination project form-event mappings do not match')
             return False
 
         # Compare source and destination project repeating instrument definitons
@@ -51,7 +51,7 @@ class DataHandler:
         dest_rpt_ins = self.dest_project.export_repeating_instruments()
 
         if src_rpt_ins != dest_rpt_ins:
-            print('Error: source and destination project repeating instrument definitions do not match')
+            logging.error('Source and destination project repeating instrument definitions do not match')
             return False
 
         return True
@@ -76,8 +76,8 @@ class DataHandler:
         num_records = len(self.src_project.record_ids)
         
         if num_records <= 0:
-            print('Warning: No records available in the source project')
-            exit(0)
+            logging.warning('No records available in the source project matching to the specifications')
+            return
 
         iterations = 1
         batch_size = num_records
@@ -90,7 +90,7 @@ class DataHandler:
 
         i = 0
         while i < iterations:
-            print('Processing batch ', i+1)
+            logging.info(f'Processing batch {i+1} ...........')
 
             begin = i * batch_size
             end = (i+1) * batch_size
