@@ -2,7 +2,7 @@ import math
 import logging
 
 from configs import Configs
-from redcap_api.redcap_connection import REDCapConnection
+from redcap_connection import REDCapConnection
 
 # Class to read the data from source REDCap project and write to destination REDCap project
 

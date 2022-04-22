@@ -4,8 +4,8 @@ import sys
 import logging
 
 from configs import Configs
-from redcap_api.redcap_connection import REDCapConnection
-from redcap_api.data_handler import DataHandler
+from redcap_connection import REDCapConnection
+from data_handler import DataHandler
 
 # programm entry
 def main():
@@ -45,7 +45,7 @@ def main():
 
 
 def usage():
-    print('Usage: python3 data_validator.py <configuration file path> <log file path>')
+    print('Usage: python3 redcap_transfer.py <configuration file path> <log file path>')
 
 
 if __name__ == "__main__":
