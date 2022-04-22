@@ -8,12 +8,12 @@ from redcap_connection import REDCapConnection
 
 class DataHandler:
     def __init__(self, src_prj: REDCapConnection, dest_prj: REDCapConnection):
-        self.src_project = src_prj
-        self.dest_project = dest_prj
+        self.src_project: REDCapConnection = src_prj
+        self.dest_project: REDCapConnection = dest_prj
 
     
     # Compare the source and destination project settings
-    def compare_project_settings(self):
+    def compare_project_settings(self) -> bool:
         # Compare source and destination project data-dictionaries, cannot be empty
         src_dict = self.src_project.export_data_dictionary()
         dest_dict = self.dest_project.export_data_dictionary()
@@ -127,6 +127,6 @@ class DataHandler:
 
 
     # Entry point to the data validation
-    def validate_data(self, records):
+    def validate_data(self, records) -> bool:
         #TODO - implement data validation rules
         return True

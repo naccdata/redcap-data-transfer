@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from re import L
 import requests
 import io
 import pandas as pd
@@ -11,15 +10,15 @@ from configs import Configs
 # This class implements the REDCap API methods
 
 class REDCapConnection:
-    def __init__(self, token, url):
-        self.token = token #API token for the desired REDCap project
-        self.url = url #REDCap instance URL
-        self.primary_key = None #primary key field of the connected REDCap project
-        self.record_ids = None #list of record ids in the project (values of primary key field)
+    def __init__(self, token: str, url: str):
+        self.token: str = token #API token for the desired REDCap project
+        self.url: str = url #REDCap instance URL
+        self.primary_key: str = None #primary key field of the connected REDCap project
+        self.record_ids: list[str | int] = None #list of record ids in the project (values of primary key field)
 
 
     # Export the project data-dictionary in JSON format
-    def export_data_dictionary(self):
+    def export_data_dictionary(self) -> str | bool:
         data = {
             'token': self.token,
             'content': 'metadata',
@@ -38,7 +37,7 @@ class REDCapConnection:
 
 
     # Export the arm definitions of the project in JSON format
-    def export_arms(self):
+    def export_arms(self) -> str | bool:
         data = {
             'token': self.token,
             'content': 'arm',
@@ -55,7 +54,7 @@ class REDCapConnection:
 
 
     # Export the event definitions of the project in JSON format
-    def export_events(self):
+    def export_events(self) -> str | bool:
         data = {
             'token': self.token,
             'content': 'event',
@@ -72,7 +71,7 @@ class REDCapConnection:
     
 
     # Export the form - event mappings in the project in JSON format
-    def export_form_event_mappings(self):
+    def export_form_event_mappings(self) -> str | bool:
         data = {
             'token': self.token,
             'content': 'formEventMapping',
@@ -91,7 +90,7 @@ class REDCapConnection:
 
 
     # Export the repeating instruments and event definitions in the project in JSON format
-    def export_repeating_instruments(self):
+    def export_repeating_instruments(self) -> str | bool:
         data = {
             'token': self.token,
             'content': 'repeatingFormsEvents',
@@ -110,7 +109,7 @@ class REDCapConnection:
 
 
     # Find the primary key for the REDCap project and set the primary_key property
-    def set_primary_key(self):
+    def set_primary_key(self) -> bool:
         data = {
             'token': self.token,
             'content': 'exportFieldNames',
@@ -132,8 +131,8 @@ class REDCapConnection:
         return True
 
 
-    # Find the list of unique record ids
-    def export_record_ids(self, events=None):
+    # Find the list of unique record ids and set the record_ids property
+    def export_record_ids(self, events: list[str] = None) -> bool:
         data = {
             'token': self.token,
             'content': 'record',
@@ -147,7 +146,7 @@ class REDCapConnection:
         # If set of events specified, export record IDs only for those events.
         if events:
             for i in range(len(events)):
-                data[f"events[{ i }]"] = events[i].strip()
+                data[f"events[{ i }]"] = events[i]
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
@@ -168,7 +167,7 @@ class REDCapConnection:
 
 
     # Export records in CSV format
-    def export_records_csv(self, record_ids=None, forms=None, events=None):
+    def export_records_csv(self, record_ids: list[int | str] = None, forms: list[str] = None, events: list[str] = None) -> str | bool:
         data = {
             'token': self.token,
             'content': 'record',
@@ -188,13 +187,13 @@ class REDCapConnection:
         # If set of forms specified, export records only from those forms.
         if forms:
             for i in range(len(forms)):
-                data[f"forms[{ i }]"] = forms[i].strip()
+                data[f"forms[{ i }]"] = forms[i]
             add_pk_field = True
 
         # If set of events specified, export records only for those events.
         if events:
             for i in range(len(events)):
-                data[f"events[{ i }]"] = events[i].strip()
+                data[f"events[{ i }]"] = events[i]
             add_pk_field = True
 
         # If exporting only subset of forms or events, make sure to request the primary key field, need it for importing data to the destination project
@@ -220,7 +219,7 @@ class REDCapConnection:
 
     # Import project arms definitions in JSON format
     # Delete all existing arms and import
-    def import_arms(self, arms):
+    def import_arms(self, arms: str) -> int | bool:
         data = {
             'token': self.token,
             'content': 'arm',
@@ -237,12 +236,12 @@ class REDCapConnection:
             return False
 
         logging.info(f'Number of arms imported: {response.text}')
-        return response.text
+        return int(response.text)
 
 
     # Import project event definitions in JSON format
     # Delete all existing events and import
-    def import_events(self, events):
+    def import_events(self, events: str) -> int | bool:
         data = {
             'token': self.token,
             'content': 'event',
@@ -259,11 +258,11 @@ class REDCapConnection:
             return False
 
         logging.info(f'Number of events imported: {response.text}')
-        return response.text
+        return int(response.text)
 
 
     # Import project data-dictionary in JSON format
-    def import_data_dictionary(self, data_dict):
+    def import_data_dictionary(self, data_dict: str) -> int | bool:
         data = {
             'token': self.token,
             'content': 'metadata',
@@ -279,11 +278,11 @@ class REDCapConnection:
             return False
 
         logging.info(f'Number of fields imported: {response.text}')
-        return response.text
+        return int(response.text)
     
     
     # Import project instrument-event mappings in JSON format
-    def import_form_event_mappings(self, form_event_map):
+    def import_form_event_mappings(self, form_event_map: str) -> int | bool:
         data = {
             'token': self.token,
             'content': 'formEventMapping',
@@ -299,11 +298,11 @@ class REDCapConnection:
             return False
 
         logging.info(f'Number of form-event mappings imported: {response.text}')
-        return response.text
+        return int(response.text)
 
 
     # Import project repeating instrument definitions in JSON format
-    def import_repeating_instruments(self, repeating_ins):
+    def import_repeating_instruments(self, repeating_ins: str) -> int | bool:
         data = {
             'token': self.token,
             'content': 'repeatingFormsEvents',
@@ -319,11 +318,11 @@ class REDCapConnection:
             return False
 
         logging.info(f'Number of repeating instruments/events imported: {response.text}')
-        return response.text
+        return int(response.text)
 
 
     # Import records in CSV format
-    def import_records_csv(self, values):
+    def import_records_csv(self, values: str) -> int | bool:
         data = {
             'token': self.token,
             'content': 'record',
@@ -350,7 +349,7 @@ class REDCapConnection:
 
 
     # Delete records
-    def delete_records(self, record_ids):
+    def delete_records(self, record_ids: list[int | str]) -> int | bool:
         data = {
             'token': self.token,
             'content': 'record',
@@ -371,6 +370,6 @@ class REDCapConnection:
         
         logging.info(f'Number of records deleted: {response.text}')
 
-        return response.text
+        return int(response.text)
 
     
