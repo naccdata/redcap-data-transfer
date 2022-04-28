@@ -125,8 +125,8 @@ class REDCapConnection:
             return False
 
         # Read the response into a pandas data frame and get the primary key
-        self.fields = pd.read_csv(io.StringIO(response.text))
-        self.primary_key = self.fields.at[0, 'export_field_name']
+        df_fields = pd.read_csv(io.StringIO(response.text))
+        self.primary_key = df_fields.at[0, 'export_field_name']
         logging.info('Primary key of the REDCap project: %s', self.primary_key)
 
         return True
@@ -146,8 +146,8 @@ class REDCapConnection:
 
         # If set of events specified, export record IDs only for those events.
         if events:
-            for i in range(len(events)):
-                data[f'events[{ i }]'] = events[i]
+            for i, event in enumerate(events):
+                data[f'events[{ i }]'] = event
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
@@ -182,21 +182,21 @@ class REDCapConnection:
 
         # If set of record ids specified, export only those records.
         if record_ids:
-            for i in range(len(record_ids)):
-                data[f'records[{ i }]'] = record_ids[i]
+            for i, record_id in enumerate(record_ids):
+                data[f'records[{ i }]'] = record_id
 
         add_pk_field = False
 
         # If set of forms specified, export records only from those forms.
         if forms:
-            for i in range(len(forms)):
-                data[f'forms[{ i }]'] = forms[i]
+            for i, form in enumerate(forms):
+                data[f'forms[{ i }]'] = form
             add_pk_field = True
 
         # If set of events specified, export records only for those events.
         if events:
-            for i in range(len(events)):
-                data[f'events[{ i }]'] = events[i]
+            for i, event in enumerate(events):
+                data[f'events[{ i }]'] = event
             add_pk_field = True
 
         # If exporting only subset of forms or events, make sure to request the primary key field,
@@ -371,8 +371,8 @@ class REDCapConnection:
 
         # Delete the specified records.
         if record_ids is not None:
-            for i in range(len(record_ids)):
-                data[f'records[{ i }]'] = record_ids[i]
+            for i, record_id in enumerate(record_ids):
+                data[f'records[{ i }]'] = record_id
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:

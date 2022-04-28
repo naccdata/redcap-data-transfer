@@ -49,17 +49,4 @@ class Configs:
         #set default value to copy only
         if 'move_records' not in Configs.configs:
             Configs.configs['move_records'] = 0
-
-    @staticmethod
-    def setup_logger(log_file_path):
-        """ Set up logger configurations """
-
-        try:
-            logging.basicConfig(
-                filename=log_file_path,
-                level=logging.INFO,
-                format='%(asctime)s [%(levelname)s] - %(message)s',
-                datefmt='%m-%d-%y %H:%M:%S')
-        except:
-            logging.critical('Exception occurred', exc_info=True)
-            sys.exit(1)
+            

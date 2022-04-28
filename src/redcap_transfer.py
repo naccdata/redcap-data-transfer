@@ -10,7 +10,7 @@ from redcap_connection import REDCapConnection
 
 # programm entry
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         usage()
         sys.exit(1)
 
@@ -19,9 +19,11 @@ def main():
         sys.exit(0)
 
     conf_file = sys.argv[1]
-    log_file = sys.argv[2]
 
-    Configs.setup_logger(log_file)
+    #Set up logger configurations
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s [%(levelname)s] - %(message)s',
+                        datefmt='%m-%d-%y %H:%M:%S')
 
     # Load and validate the configurations
     Configs.load_configs(conf_file)
@@ -50,8 +52,7 @@ def main():
 
 
 def usage():
-    print('Usage: python3 redcap_transfer.py '
-          '<configuration file path> <log file path>')
+    print('Usage: python3 redcap_transfer.py <configuration file path>')
 
 
 if __name__ == '__main__':
