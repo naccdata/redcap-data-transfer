@@ -10,8 +10,8 @@ class Configs:
 
     configs = {}
 
-    @staticmethod
-    def load_configs(conf_file_path: str):
+    @classmethod
+    def load_configs(cls, conf_file_path: str):
         """ Loads the specified configuration file """
 
         try:
