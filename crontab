@@ -9,6 +9,6 @@
 # * * * * * <command to execute>
 
 # run at 1am every day, date/time is in UTC
-* 1 * * * /usr/local/bin/python3 /data_validator/src/data_validator.py /data_validator/inputs/configs.json /data_validator/logs/data_validator.log >> /data_validator/logs/cron_errors.log 2>&1
+* 1 * * * /usr/local/bin/python3 /data_validator/src/data_validator.py /data_validator/inputs/configs.json >> /data_validator/logs/cron_errors.log 2>&1
 
 # An empty line is required at the end of this file for a valid cron file.
