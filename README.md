@@ -1,4 +1,4 @@
-# data-validator
+# redcap-data-transfer
 Module for copying/moving submitted form data in a source REDCap project to a destination REDCap project
 
 Usage: python3 data_validator.py \<configuration file path\>
