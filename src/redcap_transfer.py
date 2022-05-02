@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import sys
 import logging
 
@@ -10,15 +11,10 @@ from redcap_connection import REDCapConnection
 
 # programm entry
 def main():
-    if len(sys.argv) < 2:
-        usage()
-        sys.exit(1)
-
-    if sys.argv[1] in ['-h', '--help']:
-        usage()
-        sys.exit(0)
-
-    conf_file = sys.argv[1]
+    # Get the configguration file path
+    parser = argparse.ArgumentParser()
+    parser.add_argument('conf_file', type=str, help='Configurations file path')
+    args = parser.parse_args()
 
     #Set up logger configurations
     logging.basicConfig(level=logging.INFO,
@@ -26,11 +22,7 @@ def main():
                         datefmt='%m-%d-%y %H:%M:%S')
 
     # Load and validate the configurations
-    Configs.load_configs(conf_file)
-
-    if Configs.configs['src_api_token'] == Configs.configs['dest_api_token']:
-        logging.critical('Source and destination projects cannot be the same, '
-                         'please check the API tokens in configurations file')
+    if not Configs.load_configs(args.conf_file):
         sys.exit(1)
 
     logging.info('================= STARTING data transfer ==================')
