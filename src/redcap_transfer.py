@@ -40,7 +40,22 @@ def main():
     # If source and destination project settings matches,
     # move/copy the records from source project to destination project
     if data_handler.compare_project_settings():
-        data_handler.move_data()
+        forms = None
+        if 'forms' in Params.extra_params and \
+            Params.extra_params['forms'].strip():
+            forms = [
+                x.strip() for x in Params.extra_params['forms'].split(',')
+            ]
+
+        events = None
+        if 'events' in Params.extra_params and \
+            Params.extra_params['events'].strip():
+            events = [
+                x.strip() for x in Params.extra_params['events'].split(',')
+            ]
+
+        data_handler.move_data(Params.BATCH_SIZE, Params.MOVE_RECORDS, forms,
+                               events)
 
     logging.info('================== ENDING data transfer ===================')
 
