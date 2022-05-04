@@ -1,7 +1,9 @@
+""" DataHandler module """
+
 import logging
 import math
 
-from configs import Configs
+from params import Params
 from redcap_connection import REDCapConnection
 
 
@@ -72,12 +74,18 @@ class DataHandler:
         """ Move records from source project to destination project """
 
         forms = None
-        if 'forms' in Configs.configs and Configs.configs['forms'].strip():
-            forms = [x.strip() for x in Configs.configs['forms'].split(',')]
+        if 'forms' in Params.extra_params and Params.extra_params[
+                'forms'].strip():
+            forms = [
+                x.strip() for x in Params.extra_params['forms'].split(',')
+            ]
 
         events = None
-        if 'events' in Configs.configs and Configs.configs['events'].strip():
-            events = [x.strip() for x in Configs.configs['events'].split(',')]
+        if 'events' in Params.extra_params and Params.extra_params[
+                'events'].strip():
+            events = [
+                x.strip() for x in Params.extra_params['events'].split(',')
+            ]
 
         if not self.src_project.set_primary_key():
             return
@@ -97,9 +105,9 @@ class DataHandler:
         batch_size = num_records
 
         # Process data in batches if a valid batch size is specified
-        if Configs.configs['batch_size'] > 0:
-            batch_size = Configs.configs['batch_size']
-            iterations = math.ceil(num_records / Configs.configs['batch_size'])
+        if Params.BATCH_SIZE > 0:
+            batch_size = Params.BATCH_SIZE
+            iterations = math.ceil(num_records / Params.BATCH_SIZE)
 
         i = 0
         while i < iterations:
@@ -127,7 +135,7 @@ class DataHandler:
                     break
 
                 # Delete the records from source project
-                if Configs.configs['move_records'] == 1:
+                if Params.MOVE_RECORDS == 1:
                     num_deleted = self.src_project.delete_records(
                         self.src_project.record_ids[begin:end])
                     if not num_deleted:

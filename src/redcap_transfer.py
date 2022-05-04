@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import sys
 import logging
+import sys
 
-from configs import Configs
 from data_handler import DataHandler
+from params import Params
 from redcap_connection import REDCapConnection
 
 
@@ -13,25 +13,27 @@ from redcap_connection import REDCapConnection
 def main():
     # Get the configguration file path
     parser = argparse.ArgumentParser()
-    parser.add_argument('conf_file', type=str, help='Configurations file path')
+    parser.add_argument('conf_file',
+                        type=str,
+                        help='Configurations file path',
+                        nargs='?',
+                        default=None)
     args = parser.parse_args()
 
-    #Set up logger configurations
+    # Set up logger
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s] - %(message)s',
                         datefmt='%m-%d-%y %H:%M:%S')
 
-    # Load and validate the configurations
-    if not Configs.load_configs(args.conf_file):
+    # Load and validate the project parameters
+    if not Params.load_parameters(args.conf_file):
         sys.exit(1)
 
     logging.info('================= STARTING data transfer ==================')
 
     # Initialize source and destination REDCap connections
-    src_project = REDCapConnection(Configs.configs['src_api_token'],
-                                   Configs.configs['src_api_url'])
-    dest_project = REDCapConnection(Configs.configs['dest_api_token'],
-                                    Configs.configs['dest_api_url'])
+    src_project = REDCapConnection(Params.SRC_API_TOKEN, Params.SRC_API_URL)
+    dest_project = REDCapConnection(Params.DEST_API_TOKEN, Params.DEST_API_URL)
 
     data_handler = DataHandler(src_project, dest_project)
 
@@ -41,10 +43,6 @@ def main():
         data_handler.move_data()
 
     logging.info('================== ENDING data transfer ===================')
-
-
-def usage():
-    print('Usage: python3 redcap_transfer.py <configuration file path>')
 
 
 if __name__ == '__main__':
