@@ -1,25 +1,26 @@
-from http import HTTPStatus
-from re import L
-import requests
 import io
-import pandas as pd
 import json
 import logging
+import pandas as pd
+import requests
 
-from configs import Configs
+from http import HTTPStatus
 
-# This class implements the REDCap API methods
 
 class REDCapConnection:
-    def __init__(self, token, url):
-        self.token = token #API token for the desired REDCap project
-        self.url = url #REDCap instance URL
-        self.primary_key = None #primary key field of the connected REDCap project
-        self.record_ids = None #list of record ids in the project (values of primary key field)
+    """ This class implements the REDCap API methods """
 
+    def __init__(self, token: str, url: str):
+        self.token: str = token  #API token for the desired REDCap project
+        self.url: str = url  #REDCap instance URL
+        self.primary_key: str = None  #primary key field of the connected REDCap project
+        self.record_ids: list[
+            str |
+            int] = None  #list of record ids in the project (values of primary key field)
 
-    # Export the project data-dictionary in JSON format
-    def export_data_dictionary(self):
+    def export_data_dictionary(self) -> str | bool:
+        """Export the project data-dictionary in JSON format"""
+
         data = {
             'token': self.token,
             'content': 'metadata',
@@ -28,51 +29,46 @@ class REDCapConnection:
         }
 
         response = requests.post(self.url, data=data)
-            
+
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export the data dictionary')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
         return response.text
 
+    def export_arms(self) -> str | bool:
+        """ Export the arm definitions of the project in JSON format"""
 
-    # Export the arm definitions of the project in JSON format
-    def export_arms(self):
-        data = {
-            'token': self.token,
-            'content': 'arm',
-            'format': 'json'
-        }
+        data = {'token': self.token, 'content': 'arm', 'format': 'json'}
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export arms definitions')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
         return response.text
 
+    def export_events(self) -> str | bool:
+        """ Export the event definitions of the project in JSON format"""
 
-    # Export the event definitions of the project in JSON format
-    def export_events(self):
-        data = {
-            'token': self.token,
-            'content': 'event',
-            'format': 'json'
-        }
+        data = {'token': self.token, 'content': 'event', 'format': 'json'}
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export events definitions')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
         return response.text
-    
 
-    # Export the form - event mappings in the project in JSON format
-    def export_form_event_mappings(self):
+    def export_form_event_mappings(self) -> str | bool:
+        """ Export the form - event mappings in the project in JSON format"""
+
         data = {
             'token': self.token,
             'content': 'formEventMapping',
@@ -81,17 +77,18 @@ class REDCapConnection:
         }
 
         response = requests.post(self.url, data=data)
-            
+
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export the form - event mappings')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
         return response.text
 
+    def export_repeating_instruments(self) -> str | bool:
+        """ Export the repeating instruments and event definitions in the project in JSON format"""
 
-    # Export the repeating instruments and event definitions in the project in JSON format
-    def export_repeating_instruments(self):
         data = {
             'token': self.token,
             'content': 'repeatingFormsEvents',
@@ -100,17 +97,19 @@ class REDCapConnection:
         }
 
         response = requests.post(self.url, data=data)
-            
+
         if response.status_code != HTTPStatus.OK:
-            logging.error('Failed to export the repeating instruments definitions')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.error(
+                'Failed to export the repeating instruments definitions')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
         return response.text
 
+    def set_primary_key(self) -> bool:
+        """ Find the primary key for the REDCap project and set the primary_key property"""
 
-    # Find the primary key for the REDCap project and set the primary_key property
-    def set_primary_key(self):
         data = {
             'token': self.token,
             'content': 'exportFieldNames',
@@ -121,19 +120,20 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to retrive the REDCap project primary key')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
-        
+
         # Read the response into a pandas data frame and get the primary key
-        self.fields = pd.read_csv(io.StringIO(response.text))
-        self.primary_key = self.fields.at[0, 'export_field_name']
-        logging.info(f'Primary key of the REDCap project: {self.primary_key}')
+        df_fields = pd.read_csv(io.StringIO(response.text))
+        self.primary_key = df_fields.at[0, 'export_field_name']
+        logging.info('Primary key of the REDCap project: %s', self.primary_key)
 
         return True
 
+    def export_record_ids(self, events: list[str] = None) -> bool:
+        """ Find the list of unique record ids and set the record_ids property"""
 
-    # Find the list of unique record ids
-    def export_record_ids(self, events=None):
         data = {
             'token': self.token,
             'content': 'record',
@@ -146,29 +146,31 @@ class REDCapConnection:
 
         # If set of events specified, export record IDs only for those events.
         if events:
-            for i in range(len(events)):
-                data[f"events[{ i }]"] = events[i].strip()
+            for i, event in enumerate(events):
+                data[f'events[{ i }]'] = event
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to retrive the record IDs')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
         # Read the response into a pandas data frame
-        dfObj = pd.read_csv(io.StringIO(response.text))
+        df_obj = pd.read_csv(io.StringIO(response.text))
 
         # Get the list of unique values in the primary key column
         # Primary key can be duplicated if the project has multiple arms/events
-        self.record_ids = dfObj[self.primary_key].unique().tolist()
-
-        #print(self.record_ids)
+        self.record_ids = df_obj[self.primary_key].unique().tolist()
 
         return True
 
+    def export_records_csv(self,
+                           record_ids: list[int | str] = None,
+                           forms: list[str] = None,
+                           events: list[str] = None) -> str | bool:
+        """ Export records in CSV format"""
 
-    # Export records in CSV format
-    def export_records_csv(self, record_ids=None, forms=None, events=None):
         data = {
             'token': self.token,
             'content': 'record',
@@ -180,69 +182,69 @@ class REDCapConnection:
 
         # If set of record ids specified, export only those records.
         if record_ids:
-            for i in range(len(record_ids)):
-                data[f"records[{ i }]"] = record_ids[i]
+            for i, record_id in enumerate(record_ids):
+                data[f'records[{ i }]'] = record_id
 
         add_pk_field = False
 
         # If set of forms specified, export records only from those forms.
         if forms:
-            for i in range(len(forms)):
-                data[f"forms[{ i }]"] = forms[i].strip()
+            for i, form in enumerate(forms):
+                data[f'forms[{ i }]'] = form
             add_pk_field = True
 
         # If set of events specified, export records only for those events.
         if events:
-            for i in range(len(events)):
-                data[f"events[{ i }]"] = events[i].strip()
+            for i, event in enumerate(events):
+                data[f'events[{ i }]'] = event
             add_pk_field = True
 
-        # If exporting only subset of forms or events, make sure to request the primary key field, need it for importing data to the destination project
+        # If exporting only subset of forms or events, make sure to request the primary key field,
+        # need it for importing data to the destination project
         if add_pk_field:
             data['fields[0]'] = self.primary_key
-
-        #print(data)
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export records')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
-        
-        #print(response.status_code, response.text)
+
         if not response.text.strip():
             logging.warning('No records returned for the export request')
-            logging.info(f'Requested record IDs: {record_ids}')
+            logging.info('Requested record IDs: %s', record_ids)
             return False
 
         return response.text
 
+    def import_arms(self, arms: str) -> int | bool:
+        """ Import project arms definitions in JSON format
+            Delete all existing arms and import"""
 
-    # Import project arms definitions in JSON format
-    # Delete all existing arms and import
-    def import_arms(self, arms):
         data = {
             'token': self.token,
             'content': 'arm',
             'action': 'import',
             'format': 'json',
-            'override': 1, 
+            'override': 1,
             'data': arms
         }
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import arms')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
-        logging.info(f'Number of arms imported: {response.text}')
-        return response.text
+        logging.info('Number of arms imported: %s', response.text)
+        return int(response.text)
 
+    def import_events(self, events: str) -> int | bool:
+        """Import project event definitions in JSON format
+            Delete all existing events and import"""
 
-    # Import project event definitions in JSON format
-    # Delete all existing events and import
-    def import_events(self, events):
         data = {
             'token': self.token,
             'content': 'event',
@@ -255,15 +257,16 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import events')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
-        logging.info(f'Number of events imported: {response.text}')
-        return response.text
+        logging.info('Number of events imported: %s', response.text)
+        return int(response.text)
 
+    def import_data_dictionary(self, data_dict: str) -> int | bool:
+        """ Import project data-dictionary in JSON format"""
 
-    # Import project data-dictionary in JSON format
-    def import_data_dictionary(self, data_dict):
         data = {
             'token': self.token,
             'content': 'metadata',
@@ -275,15 +278,16 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import data dictionary')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
-        logging.info(f'Number of fields imported: {response.text}')
-        return response.text
-    
-    
-    # Import project instrument-event mappings in JSON format
-    def import_form_event_mappings(self, form_event_map):
+        logging.info('Number of fields imported: %s', response.text)
+        return int(response.text)
+
+    def import_form_event_mappings(self, form_event_map: str) -> int | bool:
+        """ Import project instrument-event mappings in JSON format"""
+
         data = {
             'token': self.token,
             'content': 'formEventMapping',
@@ -295,15 +299,18 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import form event mappings')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
-        logging.info(f'Number of form-event mappings imported: {response.text}')
-        return response.text
+        logging.info('Number of form-event mappings imported: %s',
+                     response.text)
 
+        return int(response.text)
 
-    # Import project repeating instrument definitions in JSON format
-    def import_repeating_instruments(self, repeating_ins):
+    def import_repeating_instruments(self, repeating_ins: str) -> int | bool:
+        """ Import project repeating instrument definitions in JSON format"""
+
         data = {
             'token': self.token,
             'content': 'repeatingFormsEvents',
@@ -315,15 +322,18 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import form event mappings')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
 
-        logging.info(f'Number of repeating instruments/events imported: {response.text}')
-        return response.text
+        logging.info('Number of repeating instruments/events imported: %s',
+                     response.text)
 
+        return int(response.text)
 
-    # Import records in CSV format
-    def import_records_csv(self, values):
+    def import_records_csv(self, values: str) -> int | bool:
+        """ Import records in CSV format"""
+
         data = {
             'token': self.token,
             'content': 'record',
@@ -340,17 +350,18 @@ class REDCapConnection:
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import records')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
-        
+
         num_records = json.loads(response.text)['count']
-        logging.info(f'Number of records imported: {num_records}')
+        logging.info('Number of records imported: %s', num_records)
 
         return num_records
 
+    def delete_records(self, record_ids: list[int | str]) -> int | bool:
+        """ Delete records"""
 
-    # Delete records
-    def delete_records(self, record_ids):
         data = {
             'token': self.token,
             'content': 'record',
@@ -359,18 +370,17 @@ class REDCapConnection:
         }
 
         # Delete the specified records.
-        if record_ids != None:
-            for i in range(len(record_ids)):
-                    data[f"records[{ i }]"] = record_ids[i]
+        if record_ids is not None:
+            for i, record_id in enumerate(record_ids):
+                data[f'records[{ i }]'] = record_id
 
         response = requests.post(self.url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to delete records')
-            logging.info(f'HTTP Status: {str(response.status_code)} {response.reason} : {response.text}')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
             return False
-        
-        logging.info(f'Number of records deleted: {response.text}')
 
-        return response.text
+        logging.info('Number of records deleted: %s', response.text)
 
-    
+        return int(response.text)

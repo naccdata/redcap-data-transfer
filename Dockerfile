@@ -1,29 +1,32 @@
 # set the base image
-FROM python:latest
+ARG VARIANT="3.10-slim-bullseye"
+FROM python:${VARIANT}
 
 # set the working directory in the container
-WORKDIR /data_validator
+WORKDIR /redcap_transfer
 
-# copy the requirements file to the working directory
-COPY requirements.txt .
+# copy the requirements file and install dependencies
+COPY requirements.txt /tmp/
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
-# install dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+# install cron and clean up
+RUN apt-get update && apt-get -y install --no-install-recommends cron \
+    && rm -rf /etc/cron.*/* && rm -rf /var/lib/apt/lists/*
+
+# Copy and load crontab
+COPY crontab /etc/cron.d/crontab
+RUN chmod +x /etc/cron.d/crontab \
+    && /usr/bin/crontab /etc/cron.d/crontab
+
+# Copy entrypoint.sh and set permissions
+COPY entrypoint.sh ./
+RUN chmod +x /redcap_transfer/entrypoint.sh
 
 # copy the content of the local src directory to the working directory
-ADD src/ ./src
+COPY src/ src/
 
-# create directory for log files
-RUN mkdir logs
+ENTRYPOINT ["/redcap_transfer/entrypoint.sh"]
 
-#install cron
-RUN apt-get update && apt-get -y install cron
+# -f | Run cron in foreground mode
+CMD ["cron","-f"]
 
-# Copy and enable the CRON task
-COPY ./crontab /etc/cron.d/crontab
-
-RUN chmod 0644 /etc/cron.d/crontab
-RUN /usr/bin/crontab /etc/cron.d/crontab
-
-# run crond as main process of container
-CMD ["cron", "-f"]
