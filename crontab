@@ -1,3 +1,6 @@
+SHELL=/bin/bash
+BASH_ENV=/etc/environment
+
 # ┌───────────── minute (0 - 59)
 # │ ┌───────────── hour (0 - 23)
 # │ │ ┌───────────── day of the month (1 - 31)
@@ -9,6 +12,6 @@
 # * * * * * <command to execute>
 
 # run at 1am every day, date/time is in UTC
-* 1 * * * /usr/local/bin/python3 /data_validator/src/data_validator.py /data_validator/inputs/configs.json >> /data_validator/logs/cron_errors.log 2>&1
+* 1 * * * /usr/local/bin/python3 /redcap_transfer/src/redcap_transfer.py ${CONF_FILE} >/proc/1/fd/1 2>/proc/1/fd/2
 
 # An empty line is required at the end of this file for a valid cron file.
