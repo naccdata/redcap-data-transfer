@@ -5,20 +5,84 @@ import pandas as pd
 import requests
 
 from http import HTTPStatus
+from json.decoder import JSONDecodeError
+
+
+class REDCapConnectionException(Exception):
+    pass
 
 
 class REDCapConnection:
     """ This class implements the REDCap API methods """
 
     def __init__(self, token: str, url: str):
-        self.token: str = token  #API token for the desired REDCap project
-        self.url: str = url  #REDCap instance URL
-        self.primary_key: str = None  #primary key field of the connected REDCap project
-        self.record_ids: list[
-            str |
-            int] = None  #list of record ids in the project (values of primary key field)
+        # API token for the desired REDCap project
+        self.token: str = token
+        # REDCap instance URL
+        self.url: str = url
+        # RedCAP project attributes
+        self.project_attr: dict = None
+        # Primary key field of the connected REDCap project
+        self.primary_key: str = None
+        # List of record ids in the project (values of primary key field)
+        self.record_ids: list[str | int] = None
 
-    def export_data_dictionary(self) -> str | bool:
+        if not self.__set_project_info():
+            raise REDCapConnectionException
+
+        if not self.__set_primary_key():
+            raise REDCapConnectionException
+
+    def __set_project_info(self) -> bool:
+        """ Export project info and set the project_attr property"""
+
+        data = {
+            'token': self.token,
+            'content': 'project',
+            'format': 'json',
+            'returnFormat': 'json'
+        }
+
+        response = requests.post(self.url, data=data)
+
+        if response.status_code != HTTPStatus.OK:
+            logging.error('Failed to export project information')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
+            return False
+
+        try:
+            self.project_attr = response.json()
+        except JSONDecodeError as e:
+            logging.critical('Error in parsing project information: %s', e)
+            return False
+
+        return True
+
+    def __set_primary_key(self) -> bool:
+        """ Find the primary key of the REDCap project and set the primary_key property """
+
+        data = {
+            'token': self.token,
+            'content': 'exportFieldNames',
+            'format': 'csv',
+            'returnFormat': 'json'
+        }
+
+        response = requests.post(self.url, data=data)
+        if response.status_code != HTTPStatus.OK:
+            logging.error('Failed to retrive the REDCap project primary key')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
+            return False
+
+        # Read the response into a pandas data frame and get the primary key
+        df_fields = pd.read_csv(io.StringIO(response.text))
+        self.primary_key = df_fields.at[0, 'export_field_name']
+
+        return True
+
+    def export_data_dictionary(self, forms: list[str] = None) -> str | bool:
         """Export the project data-dictionary in JSON format"""
 
         data = {
@@ -27,6 +91,11 @@ class REDCapConnection:
             'format': 'json',
             'returnFormat': 'json'
         }
+
+        # If set of forms specified, export metadata from those forms.
+        if forms:
+            for i, form in enumerate(forms):
+                data[f'forms[{ i }]'] = form
 
         response = requests.post(self.url, data=data)
 
@@ -107,30 +176,6 @@ class REDCapConnection:
 
         return response.text
 
-    def set_primary_key(self) -> bool:
-        """ Find the primary key for the REDCap project and set the primary_key property"""
-
-        data = {
-            'token': self.token,
-            'content': 'exportFieldNames',
-            'format': 'csv',
-            'returnFormat': 'json'
-        }
-
-        response = requests.post(self.url, data=data)
-        if response.status_code != HTTPStatus.OK:
-            logging.error('Failed to retrive the REDCap project primary key')
-            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
-                         response.reason, response.text)
-            return False
-
-        # Read the response into a pandas data frame and get the primary key
-        df_fields = pd.read_csv(io.StringIO(response.text))
-        self.primary_key = df_fields.at[0, 'export_field_name']
-        logging.info('Primary key of the REDCap project: %s', self.primary_key)
-
-        return True
-
     def export_record_ids(self, events: list[str] = None) -> bool:
         """ Find the list of unique record ids and set the record_ids property"""
 
@@ -156,6 +201,11 @@ class REDCapConnection:
                          response.reason, response.text)
             return False
 
+        if not response.text.strip():
+            logging.warning(
+                'Source project does not have any matching records')
+            return False
+
         # Read the response into a pandas data frame
         df_obj = pd.read_csv(io.StringIO(response.text))
 
@@ -165,17 +215,18 @@ class REDCapConnection:
 
         return True
 
-    def export_records_csv(self,
-                           record_ids: list[int | str] = None,
-                           forms: list[str] = None,
-                           events: list[str] = None) -> str | bool:
-        """ Export records in CSV format"""
+    def export_records(self,
+                       exp_format: str = 'csv',
+                       record_ids: list[int | str] = None,
+                       forms: list[str] = None,
+                       events: list[str] = None) -> str | bool:
+        """ Export records in CSV/JSON format - default is CSV """
 
         data = {
             'token': self.token,
             'content': 'record',
             'action': 'export',
-            'format': 'csv',
+            'format': exp_format,
             'type': 'flat',
             'returnFormat': 'json'
         }

@@ -15,12 +15,15 @@ class DataHandler:
         self.src_project: REDCapConnection = src_prj
         self.dest_project: REDCapConnection = dest_prj
 
-    def compare_project_settings(self) -> bool:
+    def compare_project_settings(self, forms: list[str] = None) -> bool:
         """ Compare the source and destination project settings """
 
+        src_attr = self.src_project.project_attr
+        dest_attr = self.dest_project.project_attr
+
         # Compare source and destination project data-dictionaries, cannot be empty
-        src_dict = self.src_project.export_data_dictionary()
-        dest_dict = self.dest_project.export_data_dictionary()
+        src_dict = self.src_project.export_data_dictionary(forms)
+        dest_dict = self.dest_project.export_data_dictionary(forms)
 
         if (not src_dict) or (not dest_dict) or (src_dict != dest_dict):
             logging.error(
@@ -28,42 +31,58 @@ class DataHandler:
             )
             return False
 
-        # Compare source and destination project arms definitions
-        src_arms = self.src_project.export_arms()
-        dest_arms = self.dest_project.export_arms()
+        # Compare source and destination project longitudinal settings
+        if src_attr['is_longitudinal'] and dest_attr['is_longitudinal']:
+            # Compare source and destination project arms definitions
+            src_arms = self.src_project.export_arms()
+            dest_arms = self.dest_project.export_arms()
 
-        if src_arms != dest_arms:
+            if src_arms != dest_arms:
+                logging.error(
+                    'Source and destination project arms definitions do not match'
+                )
+                return False
+
+            # Compare source and destination project event definitions
+            src_events = self.src_project.export_events()
+            dest_events = self.dest_project.export_events()
+
+            if src_events != dest_events:
+                logging.error(
+                    'Source and destination project event definitions do not match'
+                )
+                return False
+
+            # Compare source and destination project form-event mappings
+            src_evnt_map = self.src_project.export_form_event_mappings()
+            dest_evnt_map = self.dest_project.export_form_event_mappings()
+
+            if src_evnt_map != dest_evnt_map:
+                logging.error(
+                    'Source and destination project form-event mappings do not match'
+                )
+                return False
+        elif src_attr['is_longitudinal'] != dest_attr['is_longitudinal']:
             logging.error(
-                'Source and destination project arms definitions do not match')
-            return False
-
-        # Compare source and destination project event definitions
-        src_events = self.src_project.export_events()
-        dest_events = self.dest_project.export_events()
-
-        if src_events != dest_events:
-            logging.error(
-                'Source and destination project event definitions do not match'
+                'Source and destination project longitudinal settings do not match'
             )
             return False
 
-        # Compare source and destination project form-event mappings
-        src_evnt_map = self.src_project.export_form_event_mappings()
-        dest_evnt_map = self.dest_project.export_form_event_mappings()
+        # Compare source and destination project repeating instrument settings
+        if src_attr['has_repeating_instruments_or_events'] and dest_attr[
+                'has_repeating_instruments_or_events']:
+            src_rpt_ins = self.src_project.export_repeating_instruments()
+            dest_rpt_ins = self.dest_project.export_repeating_instruments()
 
-        if src_evnt_map != dest_evnt_map:
+            if src_rpt_ins != dest_rpt_ins:
+                logging.error(
+                    'Source and destination project repeating instrument definitions do not match'
+                )
+                return False
+        elif src_attr['has_repeating_instruments_or_events'] != dest_attr[
+                'has_repeating_instruments_or_events']:
             logging.error(
-                'Source and destination project form-event mappings do not match'
-            )
-            return False
-
-        # Compare source and destination project repeating instrument definitons
-        src_rpt_ins = self.src_project.export_repeating_instruments()
-        dest_rpt_ins = self.dest_project.export_repeating_instruments()
-
-        if src_rpt_ins != dest_rpt_ins:
-            logging.error(
-                'Source and destination project repeating instrument definitions do not match'
+                'Source and destination project repeated instruments settings do not match'
             )
             return False
 
@@ -75,9 +94,6 @@ class DataHandler:
                   forms: list[str] = None,
                   events: list[str] = None):
         """ Move records from source project to destination project """
-
-        if not self.src_project.set_primary_key():
-            return
 
         if not self.src_project.export_record_ids(events):
             return
@@ -108,10 +124,12 @@ class DataHandler:
 
             # Export a batch of records from the source project
             if (iterations == 1) and (not forms) and (not events):
-                records = self.src_project.export_records_csv()  #export all
+                # If there is only one iteration and no filtering, export all
+                records = self.src_project.export_records(exp_format='csv')
             else:
-                records = self.src_project.export_records_csv(
-                    self.src_project.record_ids[begin:end], forms, events)
+                records = self.src_project.export_records(
+                    'csv', self.src_project.record_ids[begin:end], forms,
+                    events)
 
             if records:
                 # Validate the records
@@ -133,7 +151,5 @@ class DataHandler:
             i += 1
 
     def validate_data(self, records) -> bool:
-        """ Entry point to the data validation """
-
-        #TODO - implement data validation rules
+        """ Entry point to the data validation """       
         return True

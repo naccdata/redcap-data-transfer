@@ -6,7 +6,7 @@ import sys
 
 from data_handler import DataHandler
 from params import Params
-from redcap_connection import REDCapConnection
+from redcap_connection import REDCapConnection, REDCapConnectionException
 
 
 # programm entry
@@ -32,28 +32,40 @@ def main():
     logging.info('================= STARTING data transfer ==================')
 
     # Initialize source and destination REDCap connections
-    src_project = REDCapConnection(Params.SRC_API_TOKEN, Params.SRC_API_URL)
-    dest_project = REDCapConnection(Params.DEST_API_TOKEN, Params.DEST_API_URL)
+    try:
+        src_project = REDCapConnection(Params.SRC_API_TOKEN,
+                                       Params.SRC_API_URL)
+    except REDCapConnectionException:
+        logging.critical(
+            'Error occurred while connecting to the source REDCap project'
+        )
+        sys.exit(1)
+
+    try:
+        dest_project = REDCapConnection(Params.DEST_API_TOKEN,
+                                        Params.DEST_API_URL)
+    except REDCapConnectionException:
+        logging.critical(
+            'Error occurred while connecting to the destination REDCap project'
+        )
+        sys.exit(1)
 
     data_handler = DataHandler(src_project, dest_project)
 
+    forms = None
+    if 'forms' in Params.extra_params and \
+        Params.extra_params['forms'].strip():
+        forms = [x.strip() for x in Params.extra_params['forms'].split(',')]
+
+    events = None
+    if 'events' in Params.extra_params and \
+        Params.extra_params['events'].strip():
+        events = [x.strip() for x in Params.extra_params['events'].split(',')]
+
     # If source and destination project settings matches,
     # move/copy the records from source project to destination project
-    if data_handler.compare_project_settings():
-        forms = None
-        if 'forms' in Params.extra_params and \
-            Params.extra_params['forms'].strip():
-            forms = [
-                x.strip() for x in Params.extra_params['forms'].split(',')
-            ]
 
-        events = None
-        if 'events' in Params.extra_params and \
-            Params.extra_params['events'].strip():
-            events = [
-                x.strip() for x in Params.extra_params['events'].split(',')
-            ]
-
+    if data_handler.compare_project_settings(forms):
         data_handler.move_data(Params.BATCH_SIZE, Params.MOVE_RECORDS, forms,
                                events)
 
