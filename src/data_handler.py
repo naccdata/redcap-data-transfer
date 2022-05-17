@@ -1,9 +1,12 @@
 """ DataHandler module """
 
+import json
 import logging
 import math
+import pandas as pd
 
 from redcap_connection import REDCapConnection
+from validator.quality_check import QualityCheck
 
 
 class DataHandler:
@@ -14,12 +17,11 @@ class DataHandler:
     def __init__(self, src_prj: REDCapConnection, dest_prj: REDCapConnection):
         self.src_project: REDCapConnection = src_prj
         self.dest_project: REDCapConnection = dest_prj
+        self.data_dict: pd.DataFrame = None
+        self.qual_check: QualityCheck = None
 
     def compare_project_settings(self, forms: list[str] = None) -> bool:
         """ Compare the source and destination project settings """
-
-        src_attr = self.src_project.project_attr
-        dest_attr = self.dest_project.project_attr
 
         # Compare source and destination project data-dictionaries, cannot be empty
         src_dict = self.src_project.export_data_dictionary(forms)
@@ -31,8 +33,19 @@ class DataHandler:
             )
             return False
 
+        # Set data dictionary
+        self.data_dic = pd.read_json(src_dict)
+
         # Compare source and destination project longitudinal settings
-        if src_attr['is_longitudinal'] and dest_attr['is_longitudinal']:
+        if self.src_project.is_longitudinal(
+        ) ^ self.dest_project.is_longitudinal():
+            logging.error(
+                'Source and destination project longitudinal settings do not match'
+            )
+            return False
+
+        if self.src_project.is_longitudinal(
+        ) and self.dest_project.is_longitudinal():
             # Compare source and destination project arms definitions
             src_arms = self.src_project.export_arms()
             dest_arms = self.dest_project.export_arms()
@@ -62,15 +75,17 @@ class DataHandler:
                     'Source and destination project form-event mappings do not match'
                 )
                 return False
-        elif src_attr['is_longitudinal'] != dest_attr['is_longitudinal']:
+
+        # Compare source and destination project repeating instrument settings
+        if self.src_project.has_repeating_instruments(
+        ) ^ self.dest_project.has_repeating_instruments():
             logging.error(
-                'Source and destination project longitudinal settings do not match'
+                'Source and destination project repeated instruments settings do not match'
             )
             return False
 
-        # Compare source and destination project repeating instrument settings
-        if src_attr['has_repeating_instruments_or_events'] and dest_attr[
-                'has_repeating_instruments_or_events']:
+        if self.src_project.has_repeating_instruments(
+        ) and self.dest_project.has_repeating_instruments():
             src_rpt_ins = self.src_project.export_repeating_instruments()
             dest_rpt_ins = self.dest_project.export_repeating_instruments()
 
@@ -79,23 +94,29 @@ class DataHandler:
                     'Source and destination project repeating instrument definitions do not match'
                 )
                 return False
-        elif src_attr['has_repeating_instruments_or_events'] != dest_attr[
-                'has_repeating_instruments_or_events']:
-            logging.error(
-                'Source and destination project repeated instruments settings do not match'
-            )
-            return False
 
         return True
 
-    def move_data(self,
-                  batch_size_val: int,
-                  move_records: int = 0,
-                  forms: list[str] = None,
-                  events: list[str] = None):
-        """ Move records from source project to destination project """
+    def set_quality_checker(self, error_log: str) -> bool:
+        """ Set up QualityCheck instance to run data validation rules """
 
-        if not self.src_project.export_record_ids(events):
+        try:
+            self.qual_check = QualityCheck(self.src_project.primary_key,
+                                           error_log)
+            return True
+        except FileNotFoundError as e:
+            logging.critical('Failed to set up error log file - %s : %s',
+                             error_log, e.strerror)
+            return False
+
+    def transfer_data(self,
+                      batch_size_val: int,
+                      move_records: int = 0,
+                      forms: list[str] = None,
+                      events: list[str] = None):
+        """ Move/copy records from source project to destination project """
+
+        if not self.src_project.export_record_ids(forms, events):
             return
 
         num_records = len(self.src_project.record_ids)
@@ -105,6 +126,9 @@ class DataHandler:
                 'No records available in the source project matching to the specifications'
             )
             return
+
+        logging.info('Number of records available in the source project: %s',
+                     num_records)
 
         iterations = 1
         batch_size = num_records
@@ -125,19 +149,25 @@ class DataHandler:
             # Export a batch of records from the source project
             if (iterations == 1) and (not forms) and (not events):
                 # If there is only one iteration and no filtering, export all
-                records = self.src_project.export_records(exp_format='csv')
+                records = self.src_project.export_records(exp_format='json')
             else:
                 records = self.src_project.export_records(
-                    'csv', self.src_project.record_ids[begin:end], forms,
+                    'json', self.src_project.record_ids[begin:end], forms,
                     events)
 
             if records:
                 # Validate the records
-                if not self.validate_data(records):
+                valid_records = self.validate_data(records)
+                if len(valid_records) == 0:
+                    logging.info('There are no valid records in batch %s ',
+                                 i + 1)
+                    i += 1
                     continue
 
                 # Import the valid records to destination project
-                num_imported = self.dest_project.import_records_csv(records)
+                import_json_str = json.dumps(valid_records)
+                num_imported = self.dest_project.import_records(
+                    import_json_str, 'json')
                 if not num_imported:
                     break
 
@@ -150,6 +180,21 @@ class DataHandler:
 
             i += 1
 
-    def validate_data(self, records) -> bool:
-        """ Entry point to the data validation """       
-        return True
+    def get_form_name(self, var_name: str) -> str:
+        """ Find the form name for a given field """
+
+        row = self.data_dic[self.data_dic['field_name'] == var_name]
+        return row['form_name'].values[0]
+
+    def validate_data(self, records: str) -> list[str]:
+        """ Entry point to the data validation """
+
+        valid_records = []
+        input_records = json.loads(records)
+
+        # Check each record against the defined rules
+        for record in input_records:
+            if self.qual_check.check_record(record):
+                valid_records.append(record)
+
+        return valid_records

@@ -4,6 +4,8 @@ import argparse
 import logging
 import sys
 
+from datetime import datetime as dt
+
 from data_handler import DataHandler
 from params import Params
 from redcap_connection import REDCapConnection, REDCapConnectionException
@@ -29,16 +31,13 @@ def main():
     if not Params.load_parameters(args.conf_file):
         sys.exit(1)
 
-    logging.info('================= STARTING data transfer ==================')
-
     # Initialize source and destination REDCap connections
     try:
         src_project = REDCapConnection(Params.SRC_API_TOKEN,
                                        Params.SRC_API_URL)
     except REDCapConnectionException:
         logging.critical(
-            'Error occurred while connecting to the source REDCap project'
-        )
+            'Error occurred while connecting to the source REDCap project')
         sys.exit(1)
 
     try:
@@ -49,6 +48,9 @@ def main():
             'Error occurred while connecting to the destination REDCap project'
         )
         sys.exit(1)
+
+    logging.info('Source Project: %s', src_project.get_project_title())
+    logging.info('Destination Project: %s', dest_project.get_project_title())
 
     data_handler = DataHandler(src_project, dest_project)
 
@@ -62,14 +64,23 @@ def main():
         Params.extra_params['events'].strip():
         events = [x.strip() for x in Params.extra_params['events'].split(',')]
 
-    # If source and destination project settings matches,
-    # move/copy the records from source project to destination project
-
+    # Check whether source and destination project settings matches,
+    logging.info('Comparing source and destination project compatibility...')
     if data_handler.compare_project_settings(forms):
-        data_handler.move_data(Params.BATCH_SIZE, Params.MOVE_RECORDS, forms,
-                               events)
+        current_time = dt.now()
+        validation_error_log = Params.LOG_FILE_PATH + Params.LOG_FILE_PREFIX + current_time.strftime(
+            '%m%d%y-%H%M%S') + '.log'
+        # Create QualityChecker instance to validate data
+        if not data_handler.set_quality_checker(validation_error_log):
+            sys.exit(1)
 
-    logging.info('================== ENDING data transfer ===================')
+        # Move/copy the records from source project to destination project
+        logging.info(
+            '================= STARTING data transfer ==================')
+        data_handler.transfer_data(Params.BATCH_SIZE, Params.MOVE_RECORDS,
+                                   forms, events)
+        logging.info(
+            '================== ENDING data transfer ===================')
 
 
 if __name__ == '__main__':

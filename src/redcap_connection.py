@@ -1,3 +1,5 @@
+""" REDCap module """
+
 import io
 import json
 import logging
@@ -82,8 +84,24 @@ class REDCapConnection:
 
         return True
 
+    def get_project_id(self) -> int:
+        """ Get the project title """
+        return self.project_attr['project_id']
+
+    def get_project_title(self) -> str:
+        """ Get the project ID """
+        return self.project_attr['project_title']
+
+    def is_longitudinal(self) -> bool:
+        """ Get the longitudinal setting for the project """
+        return bool(self.project_attr['is_longitudinal'])
+
+    def has_repeating_instruments(self) -> bool:
+        """ Get the repeating instruments setting for the project """
+        return bool(self.project_attr['has_repeating_instruments_or_events'])
+
     def export_data_dictionary(self, forms: list[str] = None) -> str | bool:
-        """Export the project data-dictionary in JSON format"""
+        """ Export the project data-dictionary in JSON format"""
 
         data = {
             'token': self.token,
@@ -176,7 +194,9 @@ class REDCapConnection:
 
         return response.text
 
-    def export_record_ids(self, events: list[str] = None) -> bool:
+    def export_record_ids(self,
+                          forms: list[str] = None,
+                          events: list[str] = None) -> bool:
         """ Find the list of unique record ids and set the record_ids property"""
 
         data = {
@@ -188,6 +208,11 @@ class REDCapConnection:
             'fields[0]': self.primary_key,
             'returnFormat': 'json'
         }
+
+        # If set of forms specified, export records only from those forms.
+        if forms:
+            for i, form in enumerate(forms):
+                data[f'forms[{ i }]'] = form
 
         # If set of events specified, export record IDs only for those events.
         if events:
@@ -382,14 +407,16 @@ class REDCapConnection:
 
         return int(response.text)
 
-    def import_records_csv(self, values: str) -> int | bool:
+    def import_records(self,
+                       values: str,
+                       imp_format: str = 'csv') -> int | bool:
         """ Import records in CSV format"""
 
         data = {
             'token': self.token,
             'content': 'record',
             'action': 'import',
-            'format': 'csv',
+            'format': imp_format,
             'type': 'flat',
             'overwriteBehavior': 'normal',
             'forceAutoNumber': 'false',

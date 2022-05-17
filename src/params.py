@@ -13,8 +13,12 @@ class Params:
     DEST_API_TOKEN: str = ''
     SRC_API_URL: str = ''
     DEST_API_URL: str = ''
+
+    # Parameters with default values
     BATCH_SIZE: int = 100
     MOVE_RECORDS: int = 0
+    LOG_FILE_PATH: str = './logs/'
+    LOG_FILE_PREFIX: str = 'validation-errors-'
 
     # Optional parameters
     extra_params = {}
@@ -35,6 +39,10 @@ class Params:
             Params.MOVE_RECORDS = decouple.config('MOVE_RECORDS',
                                                   default=0,
                                                   cast=int)
+            Params.LOG_FILE_PATH = decouple.config('LOG_FILE_PATH',
+                                                   default='./logs/')
+            Params.LOG_FILE_PREFIX = decouple.config(
+                'LOG_FILE_PREFIX', default='validation-errors-')
         except decouple.UndefinedValueError as e:
             logging.critical('Failed to load required parameters: %s', e)
             return False
