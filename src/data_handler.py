@@ -37,15 +37,15 @@ class DataHandler:
         self.data_dic = pd.read_json(src_dict)
 
         # Compare source and destination project longitudinal settings
-        if self.src_project.is_longitudinal(
-        ) ^ self.dest_project.is_longitudinal():
+        src_lng = self.src_project.is_longitudinal()
+        dest_lng = self.dest_project.is_longitudinal()
+        if (src_lng and not dest_lng) or (dest_lng and not src_lng):
             logging.error(
                 'Source and destination project longitudinal settings do not match'
             )
             return False
 
-        if self.src_project.is_longitudinal(
-        ) and self.dest_project.is_longitudinal():
+        if src_lng and dest_lng:
             # Compare source and destination project arms definitions
             src_arms = self.src_project.export_arms()
             dest_arms = self.dest_project.export_arms()
@@ -77,15 +77,15 @@ class DataHandler:
                 return False
 
         # Compare source and destination project repeating instrument settings
-        if self.src_project.has_repeating_instruments(
-        ) ^ self.dest_project.has_repeating_instruments():
+        src_ins = self.src_project.has_repeating_instruments()
+        dest_ins = self.dest_project.has_repeating_instruments()
+        if (src_ins and not dest_ins) or (dest_ins and not src_ins):
             logging.error(
                 'Source and destination project repeated instruments settings do not match'
             )
             return False
 
-        if self.src_project.has_repeating_instruments(
-        ) and self.dest_project.has_repeating_instruments():
+        if src_ins and dest_ins:
             src_rpt_ins = self.src_project.export_repeating_instruments()
             dest_rpt_ins = self.dest_project.export_repeating_instruments()
 
