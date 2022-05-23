@@ -71,7 +71,8 @@ def main():
         validation_error_log = Params.LOG_FILE_PATH + Params.LOG_FILE_PREFIX + current_time.strftime(
             '%m%d%y-%H%M%S') + '.log'
         # Create QualityChecker instance to validate data
-        if not data_handler.set_quality_checker(validation_error_log):
+        if not data_handler.set_quality_checker(validation_error_log,
+                                                Params.RULES_DIR, forms):
             sys.exit(1)
 
         # Move/copy the records from source project to destination project

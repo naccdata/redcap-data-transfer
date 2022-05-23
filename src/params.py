@@ -19,6 +19,7 @@ class Params:
     MOVE_RECORDS: int = 0
     LOG_FILE_PATH: str = './logs/'
     LOG_FILE_PREFIX: str = 'validation-errors-'
+    RULES_DIR: str = './rules/'
 
     # Optional parameters
     extra_params = {}
@@ -43,6 +44,11 @@ class Params:
                                                    default='./logs/')
             Params.LOG_FILE_PREFIX = decouple.config(
                 'LOG_FILE_PREFIX', default='validation-errors-')
+            Params.RULES_DIR = decouple.config('RULES_DIR', default='./rules')
+
+            if not conf_file_path:
+                conf_file_path = decouple.config('CONF_FILE_PATH',
+                                                 default=None)
         except decouple.UndefinedValueError as e:
             logging.critical('Failed to load required parameters: %s', e)
             return False

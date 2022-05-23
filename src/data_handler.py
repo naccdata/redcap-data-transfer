@@ -97,12 +97,15 @@ class DataHandler:
 
         return True
 
-    def set_quality_checker(self, error_log: str) -> bool:
+    def set_quality_checker(self,
+                            error_log: str,
+                            rules_dir: str,
+                            forms: list[str] = None) -> bool:
         """ Set up QualityCheck instance to run data validation rules """
 
         try:
             self.qual_check = QualityCheck(self.src_project.primary_key,
-                                           error_log)
+                                           error_log, rules_dir, forms)
             return True
         except FileNotFoundError as e:
             logging.critical('Failed to set up error log file - %s : %s',

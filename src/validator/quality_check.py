@@ -2,6 +2,7 @@
 
 import logging
 
+from validator.parser import Parser
 from validator.variable import Variable
 from validator.rule import NumericRangeRule
 
@@ -9,7 +10,11 @@ from validator.rule import NumericRangeRule
 class QualityCheck:
     """ Class to run the validation rules """
 
-    def __init__(self, primary_key: str, log_file: str):
+    def __init__(self,
+                 primary_key: str,
+                 log_file: str,
+                 rules_dir: str,
+                 forms: list[str] = None):
         # Dictionary of variables defined in the project by variable name
         self.variables: dict[Variable] = {}
         # Validation error log to record any mismatches
@@ -17,7 +22,7 @@ class QualityCheck:
         # Primary key field of the project
         self.primary_key: str = primary_key
 
-        self.__load_rules()
+        self.__load_rules(rules_dir, forms)
 
     def __setup_logger(self, log_file: str) -> logging.Logger:
         """ Create a custom logger with file handler """
@@ -39,29 +44,22 @@ class QualityCheck:
 
         return logger
 
-    def __load_rules(self) -> bool:
+    def __load_rules(self, rules_dir: str, forms: list[str] = None):
         """ Load the set of variables and rules defined for the project """
 
         # This function depends on how rules are represented,
-        # hard-code few test rule for now
-        weight_rules = []
-        weight_range_rule = NumericRangeRule('NUMRANGE', 50, 90)
-        weight_rules.append(weight_range_rule)
-        var_weight = Variable('weight', 'INT', 'Weight (lb)', weight_rules)
-        self.variables['weight'] = var_weight
+        # Load few test rules from a json file for now
 
-        height_rules = []
-        height_range_rule = NumericRangeRule('NUMRANGE', 140, 180)
-        height_rules.append(height_range_rule)
-        var_height = Variable('height', 'INT', 'Weight (lb)', height_rules)
-        self.variables['height'] = var_height
+        if forms:
+            parser = Parser(rules_dir)
+            self.variables = parser.parse_json(forms)
 
     def check_record(self, record: dict[str]) -> bool:
         """ Evaluate the record against the defined rules """
 
         passed = True
         errors = []
-        
+
         # Iterate through the fields in the input record,
         # and validates the quality rules if there's any defined
         for key in record:

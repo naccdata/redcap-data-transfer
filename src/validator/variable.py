@@ -11,11 +11,11 @@ class Variable:
                  data_type: str,
                  label: str,
                  rules: list[Rule] = None):
-        self.name = name # Variable name (unique across the forms in a project)
-        self.data_type = data_type # Variable data type
-        self.label = label # Variable label (or question) in the form
-        self.rules = rules # List of quality rules defined for this variable
-        self.errors: list[str] = [] # List of validation errors
+        self.name = name  # Variable name (unique across the forms in a project)
+        self.data_type = data_type  # Variable data type
+        self.label = label  # Variable label (or question) in the form
+        self.rules = rules  # List of quality rules defined for this variable
+        self.errors: list[str] = []  # List of validation errors
 
     def get_errors_list(self) -> list[str]:
         """ Returns the list of latest validation erros """
