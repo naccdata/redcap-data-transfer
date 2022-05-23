@@ -43,12 +43,18 @@ class QualityCheck:
         """ Load the set of variables and rules defined for the project """
 
         # This function depends on how rules are represented,
-        # hard-code a test rule for now
-        test_rules = []
-        range_rule = NumericRangeRule('NUMRANGE', 40, 100)
-        test_rules.append(range_rule)
-        test_var = Variable('weight', 'INT', 'Weight (lb)', test_rules)
-        self.variables['weight'] = test_var
+        # hard-code few test rule for now
+        weight_rules = []
+        weight_range_rule = NumericRangeRule('NUMRANGE', 50, 90)
+        weight_rules.append(weight_range_rule)
+        var_weight = Variable('weight', 'INT', 'Weight (lb)', weight_rules)
+        self.variables['weight'] = var_weight
+
+        height_rules = []
+        height_range_rule = NumericRangeRule('NUMRANGE', 140, 180)
+        height_rules.append(height_range_rule)
+        var_height = Variable('height', 'INT', 'Weight (lb)', height_rules)
+        self.variables['height'] = var_height
 
     def check_record(self, record: dict[str]) -> bool:
         """ Evaluate the record against the defined rules """
@@ -75,7 +81,7 @@ class QualityCheck:
                 'Validation failed for the record %s = %s, list of errors:',
                 self.primary_key, record[self.primary_key])
             for error in errors:
-                self.logger.error(error)
+                self.logger.info(error)
             return False
 
         return True

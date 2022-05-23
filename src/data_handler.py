@@ -139,12 +139,14 @@ class DataHandler:
             iterations = math.ceil(num_records / batch_size_val)
 
         i = 0
+        total_imported = 0
         while i < iterations:
-            logging.info('Processing batch %s ...........', i + 1)
-
             begin = i * batch_size
             end = (i + 1) * batch_size
             end = min(end, num_records)
+
+            logging.info('Processing batch %s of %s records ...........',
+                         i + 1, end - begin)
 
             # Export a batch of records from the source project
             if (iterations == 1) and (not forms) and (not events):
@@ -170,6 +172,8 @@ class DataHandler:
                     import_json_str, 'json')
                 if not num_imported:
                     break
+                else:
+                    total_imported += num_imported
 
                 # Delete the records from source project
                 if move_records == 1:
@@ -179,6 +183,13 @@ class DataHandler:
                         break
 
             i += 1
+
+        logging.info(
+            'Total number of records successfully imported to the destination project: %s',
+            total_imported)
+        logging.info(
+            'Number of records failed due to validation or import erros: %s',
+            num_records - total_imported)
 
     def get_form_name(self, var_name: str) -> str:
         """ Find the form name for a given field """
