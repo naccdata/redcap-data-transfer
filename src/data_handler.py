@@ -5,6 +5,8 @@ import logging
 import math
 import pandas as pd
 
+from typing import Tuple
+
 from redcap_connection import REDCapConnection
 from validator.quality_check import QualityCheck
 
@@ -162,7 +164,7 @@ class DataHandler:
 
             if records:
                 # Validate the records
-                valid_records = self.validate_data(records)
+                valid_records, valid_ids = self.validate_data(records)
                 if len(valid_records) == 0:
                     logging.info('There are no valid records in batch %s ',
                                  i + 1)
@@ -178,10 +180,9 @@ class DataHandler:
                 else:
                     total_imported += num_imported
 
-                # Delete the records from source project
+                # Delete the valid records from source project if move records enabled
                 if move_records == 1:
-                    num_deleted = self.src_project.delete_records(
-                        self.src_project.record_ids[begin:end])
+                    num_deleted = self.src_project.delete_records(valid_ids)
                     if not num_deleted:
                         break
 
@@ -200,15 +201,17 @@ class DataHandler:
         row = self.data_dic[self.data_dic['field_name'] == var_name]
         return row['form_name'].values[0]
 
-    def validate_data(self, records: str) -> list[str]:
+    def validate_data(self, records: str) -> Tuple[list[str], list[str]]:
         """ Entry point to the data validation """
 
         valid_records = []
+        valid_ids = []
         input_records = json.loads(records)
 
         # Check each record against the defined rules
         for record in input_records:
             if self.qual_check.check_record(record):
                 valid_records.append(record)
+                valid_ids.append(record[self.src_project.primary_key])
 
-        return valid_records
+        return valid_records, valid_ids
