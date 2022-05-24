@@ -1,10 +1,9 @@
-""" QualityCheck module """
+""" Module for performing data quality checks """
 
 import logging
 
 from validator.parser import Parser
 from validator.variable import Variable
-from validator.rule import NumericRangeRule
 
 
 class QualityCheck:

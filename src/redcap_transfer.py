@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import logging
 import sys
 
@@ -13,22 +12,13 @@ from redcap_connection import REDCapConnection, REDCapConnectionException
 
 # programm entry
 def main():
-    # Get the configguration file path
-    parser = argparse.ArgumentParser()
-    parser.add_argument('conf_file',
-                        type=str,
-                        help='Configurations file path',
-                        nargs='?',
-                        default=None)
-    args = parser.parse_args()
-
     # Set up logger
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s] - %(message)s',
                         datefmt='%m-%d-%y %H:%M:%S')
 
     # Load and validate the project parameters
-    if not Params.load_parameters(args.conf_file):
+    if not Params.load_parameters():
         sys.exit(1)
 
     # Initialize source and destination REDCap connections
@@ -68,7 +58,7 @@ def main():
     logging.info('Comparing source and destination project compatibility...')
     if data_handler.compare_project_settings(forms):
         current_time = dt.now()
-        validation_error_log = Params.LOG_FILE_PATH + Params.LOG_FILE_PREFIX + current_time.strftime(
+        validation_error_log = Params.LOG_FILE_DIR + Params.LOG_FILE_PREFIX + current_time.strftime(
             '%m%d%y-%H%M%S') + '.log'
         # Create QualityChecker instance to validate data
         if not data_handler.set_quality_checker(validation_error_log,

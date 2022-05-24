@@ -12,6 +12,6 @@ BASH_ENV=/etc/environment
 # * * * * * <command to execute>
 
 # run at 1am every day, date/time is in UTC
-* 1 * * * /usr/local/bin/python3 /redcap_transfer/src/redcap_transfer.py ${CONF_FILE} >/proc/1/fd/1 2>/proc/1/fd/2
+*/1 * * * * /usr/local/bin/python3 /redcap_transfer/src/redcap_transfer.py >/proc/1/fd/1 2>/proc/1/fd/2
 
 # An empty line is required at the end of this file for a valid cron file.

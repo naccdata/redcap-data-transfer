@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os.path
 
 from json.decoder import JSONDecodeError
 
@@ -39,8 +38,8 @@ class Parser:
                     form_def = json.load(file_object)
             except (FileNotFoundError, OSError, JSONDecodeError,
                     TypeError) as e:
-                logging.critical('Failed to load the form definition file: %s',
-                                 e)
+                logging.error('Failed to load the form definition file - %s : %s', form_def_file, e)
+                logging.warning('Skipping validations for the form - %s', form)
                 continue
 
             if Keys.FIELDS in form_def:
