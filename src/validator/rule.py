@@ -39,6 +39,27 @@ class NumericRangeRule(Rule):
             return True
 
         super().set_error(
-            f'Range check failed for the field "{var_name}": current value - {var_value}, expected range - [{self.min_val} - {self.max_val}]'
+            f'Range check failed for the variable "{var_name}": current value - {var_value}, expected range - [{self.min_val} - {self.max_val}]'
+        )
+        return False
+
+
+class MaxValueRule(Rule):
+    """ Class to represent a max allowed check for numeric variable """
+
+    def __init__(self, code: str, max_val: float) -> None:
+        super().__init__(code)
+        self.max_val = max_val
+
+    def apply(self, var_name, var_value: float) -> bool:
+        """ Apply the rule on the specified variable value """
+
+        super().set_error('')
+
+        if var_value <= self.max_val:
+            return True
+
+        super().set_error(
+            f'Max value check failed for the variable "{var_name}": current value - {var_value}, maximum allowed - {self.max_val}'
         )
         return False

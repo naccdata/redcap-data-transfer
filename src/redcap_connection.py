@@ -23,7 +23,7 @@ class REDCapConnection:
         # REDCap instance URL
         self.url: str = url
         # RedCAP project attributes
-        self.project_attr: dict = None
+        self.project_attr: dict[str, str | int] = None
         # Primary key field of the connected REDCap project
         self.primary_key: str = None
         # List of record ids in the project (values of primary key field)
@@ -124,6 +124,24 @@ class REDCapConnection:
             return False
 
         return response.text
+
+    def export_froms_list(self) -> list[dict[str, str]]:
+        """ Export the list of data entry forms in the project """
+
+        data = {'token': self.token, 'content': 'instrument', 'format': 'json'}
+
+        response = requests.post(self.url, data=data)
+        if response.status_code != HTTPStatus.OK:
+            logging.error('Failed to export data entry forms list')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
+            return None
+
+        try:
+            return response.json()
+        except JSONDecodeError as e:
+            logging.error('Error in parsing the data entry forms list: %s', e)
+            return None
 
     def export_arms(self) -> str | bool:
         """ Export the arm definitions of the project in JSON format"""
@@ -410,7 +428,7 @@ class REDCapConnection:
     def import_records(self,
                        values: str,
                        imp_format: str = 'csv') -> int | bool:
-        """ Import records in CSV format"""
+        """ Import records in CSV/JSON format - default is CSV """
 
         data = {
             'token': self.token,
