@@ -2,6 +2,8 @@
 
 import logging
 
+from typing import Tuple
+
 from validator.parser import Parser
 from validator.variable import Variable
 
@@ -15,7 +17,7 @@ class QualityCheck:
                  rules_dir: str,
                  forms: list[str] = None):
         # Dictionary of variables defined in the project by variable name
-        self.variables: dict[Variable] = {}
+        self.variables: dict[str, Variable] = {}
         # Validation error log to record any mismatches
         self.logger: logging.Logger = self.__setup_logger(log_file)
         # Primary key field of the project
@@ -53,11 +55,12 @@ class QualityCheck:
             parser = Parser(rules_dir)
             self.variables = parser.parse_json(forms)
 
-    def check_record(self, record: dict[str]) -> bool:
+    def check_record(self, record: dict[str,
+                                        str]) -> Tuple[bool, dict[str, str]]:
         """ Evaluate the record against the defined rules """
 
         passed = True
-        errors = []
+        errors = {}
 
         # Iterate through the fields in the input record,
         # and validates the quality rules if there's any defined
@@ -69,7 +72,7 @@ class QualityCheck:
                     # using casting for now
                     value = variable.cast_value(record[key])
                     if (value is not None) and (not variable.validate(value)):
-                        errors.extend(variable.get_errors_list())
+                        errors[key] = '\n'.join(variable.get_errors_list())
                         passed = False
 
         # Log the errors if validation failed
@@ -77,8 +80,8 @@ class QualityCheck:
             self.logger.error(
                 'Validation failed for the record %s = %s, list of errors:',
                 self.primary_key, record[self.primary_key])
-            for error in errors:
-                self.logger.info(error)
-            return False
+            for value in errors.values():
+                self.logger.info(value)
+            return False, errors
 
-        return True
+        return True, errors

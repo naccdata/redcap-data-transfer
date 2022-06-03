@@ -5,6 +5,7 @@ import logging
 import math
 import pandas as pd
 
+from datetime import datetime as dt
 from typing import Tuple
 
 from redcap_connection import REDCapConnection
@@ -16,18 +17,62 @@ class DataHandler:
         and write to a destination REDCap project
     """
 
-    def __init__(self, src_prj: REDCapConnection, dest_prj: REDCapConnection):
+    def __init__(self,
+                 src_prj: REDCapConnection,
+                 dest_prj: REDCapConnection,
+                 forms: list[str] = None,
+                 events: list[str] = None,
+                 qc_err_form: str = None):
         self.src_project: REDCapConnection = src_prj
         self.dest_project: REDCapConnection = dest_prj
+        # List of all form names in the source project with labels
+        self.all_forms: list[dict[str, str]] = src_prj.export_froms_list()
+        # Name of the REDCap form for reporting validation errors
+        self.qc_err_form = qc_err_form
+        # List of form names to be included in data transfer,
+        # if not specified, all forms will be included
+        self.forms: list[str] = forms if forms else self.get_forms_list()
+        # List of events to be included in data transfer,
+        # if not specified all events will be included
+        self.events: list[str] = events
+        # Data dictionary for the data entry forms
+        # this includes all metadata related to form fields
         self.data_dict: pd.DataFrame = None
+        # Object to validate data quality rules
         self.qual_check: QualityCheck = None
 
-    def compare_project_settings(self, forms: list[str] = None) -> bool:
+    def get_forms_list(self) -> list[str]:
+        """ Get the list of forms in source project """
+        forms_list = []
+
+        if self.all_forms:
+            for form in self.all_forms:
+                forms_list.append(form['instrument_name'])
+
+        # Exclude the validation error reporting form
+        if self.qc_err_form:
+            forms_list.remove(self.qc_err_form)
+
+        return forms_list
+
+    def get_form_name(self, var_name: str) -> str:
+        """ Find the form name for a given field """
+
+        row = self.data_dic[self.data_dic['field_name'] == var_name]
+        return row['form_name'].values[0]
+
+    def get_field_label(self, var_name: str) -> str:
+        """ Find the label for a given field """
+
+        row = self.data_dic[self.data_dic['field_name'] == var_name]
+        return row['field_label'].values[0]
+
+    def compare_project_settings(self) -> bool:
         """ Compare the source and destination project settings """
 
         # Compare source and destination project data-dictionaries, cannot be empty
-        src_dict = self.src_project.export_data_dictionary(forms)
-        dest_dict = self.dest_project.export_data_dictionary(forms)
+        src_dict = self.src_project.export_data_dictionary(self.forms)
+        dest_dict = self.dest_project.export_data_dictionary(self.forms)
 
         if (not src_dict) or (not dest_dict) or (src_dict != dest_dict):
             logging.error(
@@ -99,29 +144,22 @@ class DataHandler:
 
         return True
 
-    def set_quality_checker(self,
-                            error_log: str,
-                            rules_dir: str,
-                            forms: list[str] = None) -> bool:
+    def set_quality_checker(self, error_log: str, rules_dir: str) -> bool:
         """ Set up QualityCheck instance to run data validation rules """
 
         try:
             self.qual_check = QualityCheck(self.src_project.primary_key,
-                                           error_log, rules_dir, forms)
+                                           error_log, rules_dir, self.forms)
             return True
         except FileNotFoundError as e:
             logging.critical('Failed to set up error log file - %s : %s',
                              error_log, e.strerror)
             return False
 
-    def transfer_data(self,
-                      batch_size_val: int,
-                      move_records: int = 0,
-                      forms: list[str] = None,
-                      events: list[str] = None):
+    def transfer_data(self, batch_size_val: int, move_records: int = 0):
         """ Move/copy records from source project to destination project """
 
-        if not self.src_project.export_record_ids(forms, events):
+        if not self.src_project.export_record_ids(self.forms, self.events):
             return
 
         num_records = len(self.src_project.record_ids)
@@ -154,17 +192,24 @@ class DataHandler:
                          i + 1, end - begin)
 
             # Export a batch of records from the source project
-            if (iterations == 1) and (not forms) and (not events):
+            if (iterations == 1) and (not self.forms) and (not self.events):
                 # If there is only one iteration and no filtering, export all
                 records = self.src_project.export_records(exp_format='json')
             else:
                 records = self.src_project.export_records(
-                    'json', self.src_project.record_ids[begin:end], forms,
-                    events)
+                    'json', self.src_project.record_ids[begin:end], self.forms,
+                    self.events)
 
             if records:
                 # Validate the records
-                valid_records, valid_ids = self.validate_data(records)
+                valid_ids, valid_records, failed_records = self.validate_data(
+                    records)
+
+                # Import the validation errors to the source project
+                if self.qc_err_form and len(failed_records) != 0:
+                    errors_json_str = json.dumps(failed_records)
+                    self.src_project.import_records(errors_json_str, 'json')
+
                 if len(valid_records) == 0:
                     logging.info('There are no valid records in batch %s ',
                                  i + 1)
@@ -176,7 +221,8 @@ class DataHandler:
                 num_imported = self.dest_project.import_records(
                     import_json_str, 'json')
                 if not num_imported:
-                    break
+                    i += 1
+                    continue
                 else:
                     total_imported += num_imported
 
@@ -195,23 +241,43 @@ class DataHandler:
             'Number of records failed due to validation or import erros: %s',
             num_records - total_imported)
 
-    def get_form_name(self, var_name: str) -> str:
-        """ Find the form name for a given field """
-
-        row = self.data_dic[self.data_dic['field_name'] == var_name]
-        return row['form_name'].values[0]
-
-    def validate_data(self, records: str) -> Tuple[list[str], list[str]]:
+    def validate_data(
+        self, records: str
+    ) -> Tuple[list[str], list[dict[str, str]], list[dict[str, str]]]:
         """ Entry point to the data validation """
 
         valid_records = []
-        valid_ids = []
+        failed_records = []
+        valid_ids = set()
         input_records = json.loads(records)
 
         # Check each record against the defined rules
         for record in input_records:
-            if self.qual_check.check_record(record):
+            record_id = record[self.src_project.primary_key]
+            valid, dict_erros = self.qual_check.check_record(record)
+            if valid:
                 valid_records.append(record)
-                valid_ids.append(record[self.src_project.primary_key])
+                valid_ids.add(record_id)
+            else:
+                self.compose_error_report_for_record(record_id, dict_erros,
+                                                     failed_records)
 
-        return valid_records, valid_ids
+        return list(valid_ids), valid_records, failed_records
+
+    def compose_error_report_for_record(self, record_id: str,
+                                        errors: dict[str, str],
+                                        failed_records: list[dict[str, str]]):
+        """ Create an object to report the validation errors, 
+            these will be imported to REDCap project in JSON format
+        """
+
+        failed = {}
+        failed[self.src_project.primary_key] = record_id
+        failed['timestamp'] = (dt.now()).strftime('%m-%d-%y %H:%M:%S')
+        error_str = ''
+        for key in errors:
+            error_str += 'Form Name: ' + self.get_form_name(key) + ' | '
+            error_str += 'Question: ' + self.get_field_label(key) + ' | '
+            error_str += 'Errors: ' + errors[key] + '\n'
+        failed['val_errs'] = error_str
+        failed_records.append(failed)

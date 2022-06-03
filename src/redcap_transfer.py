@@ -42,8 +42,6 @@ def main():
     logging.info('Source Project: %s', src_project.get_project_title())
     logging.info('Destination Project: %s', dest_project.get_project_title())
 
-    data_handler = DataHandler(src_project, dest_project)
-
     forms = None
     if 'forms' in Params.extra_params and \
         Params.extra_params['forms'].strip():
@@ -54,22 +52,29 @@ def main():
         Params.extra_params['events'].strip():
         events = [x.strip() for x in Params.extra_params['events'].split(',')]
 
+    qc_err_form = 'data_quality_check_errors'
+    if 'errors_form' in Params.extra_params:
+        qc_err_form = Params.extra_params['errors_form']
+
+    data_handler = DataHandler(src_project, dest_project, forms, events,
+                               qc_err_form)
+
     # Check whether source and destination project settings matches,
     logging.info('Comparing source and destination project compatibility...')
-    if data_handler.compare_project_settings(forms):
+    if data_handler.compare_project_settings():
         current_time = dt.now()
-        validation_error_log = Params.LOG_FILE_DIR + Params.LOG_FILE_PREFIX + current_time.strftime(
-            '%m%d%y-%H%M%S') + '.log'
+        validation_error_log = Params.LOG_FILE_DIR + Params.LOG_FILE_PREFIX
+        validation_error_log += current_time.strftime('%m%d%y-%H%M%S') + '.log'
+
         # Create QualityChecker instance to validate data
         if not data_handler.set_quality_checker(validation_error_log,
-                                                Params.RULES_DIR, forms):
+                                                Params.RULES_DIR):
             sys.exit(1)
 
         # Move/copy the records from source project to destination project
         logging.info(
             '================= STARTING data transfer ==================')
-        data_handler.transfer_data(Params.BATCH_SIZE, Params.MOVE_RECORDS,
-                                   forms, events)
+        data_handler.transfer_data(Params.BATCH_SIZE, Params.MOVE_RECORDS)
         logging.info(
             '================== ENDING data transfer ===================')
 

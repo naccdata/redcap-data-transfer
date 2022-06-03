@@ -4,7 +4,9 @@ import json
 import logging
 
 from json.decoder import JSONDecodeError
+from typing import Any
 
+from validator.rule import MaxValueRule
 from validator.rule import NumericRangeRule
 from validator.rule import Rule
 from validator.variable import Variable
@@ -23,22 +25,26 @@ class Keys:
 
 class Parser:
     """ Class to load the validation rules as python objects """
-    rules_def_dir = './rules'
+
+    rules_dir = './rules/'
 
     def __init__(self, rules_dir):
-        self.rules_def_dir = rules_dir
+        self.rules_dir = rules_dir
 
-    def parse_json(self, forms: list[str]) -> dict[Variable]:
+    def parse_json(self, forms: list[str]) -> dict[str, Variable]:
         """ Populate variables dictionary from form definitions """
-        variables: dict[Variable] = {}
+
+        variables: dict[str, Variable] = {}
         for form in forms:
-            form_def_file = self.rules_def_dir + form + '.json'
+            form_def_file = self.rules_dir + form + '.json'
             try:
                 with open(form_def_file, 'r', encoding='utf-8') as file_object:
                     form_def = json.load(file_object)
             except (FileNotFoundError, OSError, JSONDecodeError,
                     TypeError) as e:
-                logging.error('Failed to load the form definition file - %s : %s', form_def_file, e)
+                logging.error(
+                    'Failed to load the form definition file - %s : %s',
+                    form_def_file, e)
                 logging.warning('Skipping validations for the form - %s', form)
                 continue
 
@@ -63,8 +69,9 @@ class Parser:
 
         return variables
 
-    def validate_field_def(self, field_def: dict) -> bool:
+    def validate_field_def(self, field_def: dict[str, Any]) -> bool:
         """ Validate the field definition """
+
         if Keys.FLD_NAME not in field_def:
             return False
         if Keys.FLD_TYPE not in field_def:
@@ -76,8 +83,9 @@ class Parser:
 
         return True
 
-    def validate_rule_def(self, rule_def: dict) -> bool:
+    def validate_rule_def(self, rule_def: dict[str, Any]) -> bool:
         """ Validate the rule definition """
+
         if Keys.RULE_CODE not in rule_def:
             return False
 
@@ -87,14 +95,22 @@ class Parser:
             if Keys.RULE_MIN not in rule_def:
                 return False
 
+        if rule_def[Keys.RULE_CODE] == 'MAXVAL':
+            if Keys.RULE_MAX not in rule_def:
+                return False
+
         return True
 
-    def get_rule_object(self, rule_def: dict) -> Rule | None:
+    def get_rule_object(self, rule_def: dict[str, Any]) -> Rule | None:
         """ Populate respective rule object according to rule code """
+
         rule = None
         code = rule_def[Keys.RULE_CODE]
         if code == 'NUMRANGE':
             rule = NumericRangeRule(code, rule_def[Keys.RULE_MIN],
                                     rule_def[Keys.RULE_MAX])
+
+        if code == 'MAXVAL':
+            rule = MaxValueRule(code, rule_def[Keys.RULE_MAX])
 
         return rule
