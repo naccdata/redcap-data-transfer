@@ -1,7 +1,5 @@
 """ Module for performing data quality checks """
 
-import logging
-
 from typing import Tuple
 
 from validator.parser import Parser
@@ -13,37 +11,14 @@ class QualityCheck:
 
     def __init__(self,
                  primary_key: str,
-                 log_file: str,
                  rules_dir: str,
                  forms: list[str] = None):
         # Dictionary of variables defined in the project by variable name
         self.variables: dict[str, Variable] = {}
-        # Validation error log to record any mismatches
-        self.logger: logging.Logger = self.__setup_logger(log_file)
         # Primary key field of the project
         self.primary_key: str = primary_key
 
         self.__load_rules(rules_dir, forms)
-
-    def __setup_logger(self, log_file: str) -> logging.Logger:
-        """ Create a custom logger with file handler """
-
-        logger = logging.getLogger(__name__)
-
-        # Create file handler
-        f_handler = logging.FileHandler(log_file)
-        f_handler.setLevel(logging.INFO)
-
-        # Create formatter and add it to handlers
-        f_format = logging.Formatter(
-            fmt='%(asctime)s [%(levelname)s] - %(message)s',
-            datefmt='%m-%d-%y %H:%M:%S')
-        f_handler.setFormatter(f_format)
-
-        # Add handlers to the logger
-        logger.addHandler(f_handler)
-
-        return logger
 
     def __load_rules(self, rules_dir: str, forms: list[str] = None):
         """ Load the set of variables and rules defined for the project """
@@ -75,13 +50,4 @@ class QualityCheck:
                         errors[key] = '\n'.join(variable.get_errors_list())
                         passed = False
 
-        # Log the errors if validation failed
-        if not passed:
-            self.logger.error(
-                'Validation failed for the record %s = %s, list of errors:',
-                self.primary_key, record[self.primary_key])
-            for value in errors.values():
-                self.logger.info(value)
-            return False, errors
-
-        return True, errors
+        return passed, errors

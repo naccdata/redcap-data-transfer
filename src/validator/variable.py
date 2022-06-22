@@ -41,13 +41,16 @@ class Variable:
         if not value:
             return None
 
-        if self.data_type == 'INT':
-            return int(value)
+        try:
+            if self.data_type == 'INT':
+                return int(value)
 
-        if self.data_type == 'FLOAT':
-            return float(value)
+            if self.data_type == 'FLOAT':
+                return float(value)
 
-        if self.data_type == 'BOOL':
-            return bool(value)
-
+            if self.data_type == 'BOOL':
+                return bool(value)
+        except ValueError:
+            return value
+            
         return value

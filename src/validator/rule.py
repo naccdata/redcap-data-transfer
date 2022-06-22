@@ -35,8 +35,9 @@ class NumericRangeRule(Rule):
 
         super().set_error('')
 
-        if self.min_val <= var_value <= self.max_val:
-            return True
+        if isinstance(var_value, (int, float)):
+            if self.min_val <= var_value <= self.max_val:
+                return True
 
         super().set_error(
             f'Range check failed for the variable "{var_name}": current value - {var_value}, expected range - [{self.min_val} - {self.max_val}]'
@@ -56,8 +57,9 @@ class MaxValueRule(Rule):
 
         super().set_error('')
 
-        if var_value <= self.max_val:
-            return True
+        if isinstance(var_value, (int, float)):
+            if var_value <= self.max_val:
+                return True
 
         super().set_error(
             f'Max value check failed for the variable "{var_name}": current value - {var_value}, maximum allowed - {self.max_val}'
