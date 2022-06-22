@@ -21,6 +21,8 @@ def main():
     if not Params.load_parameters():
         sys.exit(1)
 
+    setup_logfile()
+
     # Initialize source and destination REDCap connections
     try:
         src_project = REDCapConnection(Params.SRC_API_TOKEN,
@@ -62,21 +64,45 @@ def main():
     # Check whether source and destination project settings matches,
     logging.info('Comparing source and destination project compatibility...')
     if data_handler.compare_project_settings():
-        current_time = dt.now()
-        validation_error_log = Params.LOG_FILE_DIR + Params.LOG_FILE_PREFIX
-        validation_error_log += current_time.strftime('%m%d%y-%H%M%S') + '.log'
-
         # Create QualityChecker instance to validate data
-        if not data_handler.set_quality_checker(validation_error_log,
-                                                Params.RULES_DIR):
-            sys.exit(1)
-
+        data_handler.set_quality_checker(Params.RULES_DIR)
+            
         # Move/copy the records from source project to destination project
         logging.info(
             '================= STARTING data transfer ==================')
         data_handler.transfer_data(Params.BATCH_SIZE, Params.MOVE_RECORDS)
         logging.info(
             '================== ENDING data transfer ===================')
+
+
+def setup_logfile():
+    """ Add a file handler to the root logger """
+
+    current_time = dt.now()
+    log_file = Params.LOG_FILE_DIR + Params.LOG_FILE_PREFIX
+    log_file += current_time.strftime('%m%d%y-%H%M%S') + '.log'
+
+    logger = logging.getLogger()
+
+    # Create file handler
+    try:
+        f_handler = logging.FileHandler(log_file)
+
+        # Create formatter and add it to handler
+        f_format = logging.Formatter(
+            fmt='%(asctime)s [%(levelname)s] - %(message)s',
+            datefmt='%m-%d-%y %H:%M:%S')
+        f_handler.setFormatter(f_format)
+
+        f_handler.setLevel(logging.INFO)
+
+        # Add handler to the logger
+        logger.addHandler(f_handler)
+
+        logging.info('Application log file created - %s', log_file)
+    except FileNotFoundError as e:
+        logging.error('Failed to set up application log file - %s : %s',
+                      log_file, e.strerror)
 
 
 if __name__ == '__main__':

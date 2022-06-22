@@ -34,6 +34,8 @@ class Parser:
     def parse_json(self, forms: list[str]) -> dict[str, Variable]:
         """ Populate variables dictionary from form definitions """
 
+        logging.info('Loading data validation rules...')
+
         variables: dict[str, Variable] = {}
         for form in forms:
             form_def_file = self.rules_dir + form + '.json'
