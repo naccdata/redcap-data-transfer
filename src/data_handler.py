@@ -1,5 +1,6 @@
 """ DataHandler module """
 
+import html2text
 import json
 import logging
 import math
@@ -9,7 +10,7 @@ from datetime import datetime as dt
 from typing import Tuple
 
 from redcap_connection import REDCapConnection
-from validator.quality_check import QualityCheck
+from validator.quality_check import QualityCheck, QualityCheckException
 
 
 class DataHandler:
@@ -42,9 +43,9 @@ class DataHandler:
         self.qual_check: QualityCheck = None
 
     def get_forms_list(self) -> list[str]:
-        """ Get the list of forms in source project """
-        forms_list = []
+        """ Get the list of forms in the source project """
 
+        forms_list = []
         if self.all_forms:
             for form in self.all_forms:
                 forms_list.append(form['instrument_name'])
@@ -144,13 +145,18 @@ class DataHandler:
 
         return True
 
-    def set_quality_checker(self, rules_dir: str):
+    def set_quality_checker(self, rules_dir: str, strict: bool = True) -> bool:
         """ Set up QualityCheck instance to run data validation rules """
 
-        self.qual_check = QualityCheck(self.src_project.primary_key, rules_dir,
-                                       self.forms)
+        try:
+            self.qual_check = QualityCheck(self.src_project.primary_key,
+                                           rules_dir, self.forms, strict)
+            return True
+        except QualityCheckException as e:
+            logging.critical(e)
+            return False
 
-    def transfer_data(self, batch_size_val: int, move_records: int = 0):
+    def transfer_data(self, batch_size_val: int, move_records: bool = True):
         """ Move/copy records from source project to destination project """
 
         if not self.src_project.export_record_ids(self.forms, self.events):
@@ -185,15 +191,16 @@ class DataHandler:
             logging.info('Processing batch %s of %s records ...........',
                          i + 1, end - begin)
 
-            # Export a batch of records from the source project
-            if (iterations == 1) and (not self.forms) and (not self.events):
-                # If there is only one iteration and no filtering, export all
-                records = self.src_project.export_records(exp_format='json')
+            if iterations == 1:
+                # If there is only one iteration, export all.
+                # no need to specify record ids
+                record_ids = None
             else:
-                records = self.src_project.export_records(
-                    'json', self.src_project.record_ids[begin:end], self.forms,
-                    self.events)
+                record_ids = self.src_project.record_ids[begin:end]
 
+            # Export a batch of records from the source project
+            records = self.src_project.export_records('json', record_ids,
+                                                      self.forms, self.events)
             if records:
                 # Validate the records
                 valid_ids, valid_records, failed_records = self.validate_data(
@@ -202,7 +209,11 @@ class DataHandler:
                 # Import the validation errors to the source project
                 if self.qc_err_form and len(failed_records) != 0:
                     errors_json_str = json.dumps(failed_records)
-                    self.src_project.import_records(errors_json_str, 'json')
+                    if not self.src_project.import_records(
+                            errors_json_str, 'json'):
+                        logging.warning(
+                            'Failed to write validation errors to the source project'
+                        )
 
                 if len(valid_records) == 0:
                     logging.info('There are no valid records in batch %s ',
@@ -214,17 +225,22 @@ class DataHandler:
                 import_json_str = json.dumps(valid_records)
                 num_imported = self.dest_project.import_records(
                     import_json_str, 'json')
-                if not num_imported:
+                if num_imported:
+                    logging.info(
+                        'Number of records imported to the destination project: %s',
+                        num_imported)
+                    total_imported += num_imported
+                else:
                     i += 1
                     continue
-                else:
-                    total_imported += num_imported
 
                 # Delete the valid records from source project if move records enabled
-                if move_records == 1:
+                if move_records:
                     num_deleted = self.src_project.delete_records(valid_ids)
-                    if not num_deleted:
-                        break
+                    if num_deleted:
+                        logging.info(
+                            'Number of records deleted from the source project: %s',
+                            num_deleted)
 
             i += 1
 
@@ -236,43 +252,47 @@ class DataHandler:
             num_records - total_imported)
 
     def validate_data(
-        self, records: str
+        self, records_str: str
     ) -> Tuple[list[str], list[dict[str, str]], list[dict[str, str]]]:
         """ Entry point to the data validation """
 
         valid_records = []
         failed_records = []
         valid_ids = set()
-        input_records = json.loads(records)
+        records_list = json.loads(records_str)
 
         # Check each record against the defined rules
-        for record in input_records:
+        for record in records_list:
             record_id = record[self.src_project.primary_key]
-            valid, dict_erros = self.qual_check.check_record(record)
+            valid, dict_erros = self.qual_check.check_record_cerberus(record)
             if valid:
                 valid_records.append(record)
                 valid_ids.add(record_id)
             else:
-                self.compose_error_report_for_record(record_id, dict_erros,
+                self.compose_error_report_for_record(record, dict_erros,
                                                      failed_records)
 
         return list(valid_ids), valid_records, failed_records
 
-    def compose_error_report_for_record(self, record_id: str,
-                                        errors: dict[str, str],
+    def compose_error_report_for_record(self, record: dict[str, str],
+                                        errors: dict[str, list[str]],
                                         failed_records: list[dict[str, str]]):
         """ Create an object to report the validation errors, 
             these will be imported to REDCap project in JSON format
         """
 
+        record_id = record[self.src_project.primary_key]
         failed = {}
         failed[self.src_project.primary_key] = record_id
         failed['timestamp'] = (dt.now()).strftime('%m-%d-%y %H:%M:%S')
         error_str = ''
         for key in errors:
             error_str += 'Form Name: ' + self.get_form_name(key) + ' | '
-            error_str += 'Question: ' + self.get_field_label(key) + ' | '
-            error_str += 'Errors: ' + errors[key] + '\n'
+            error_str += 'Question: ' + html2text.html2text(
+                self.get_field_label(key)).strip() + ' | '
+            error_str += 'Variable: ' + key + ' | '
+            error_str += 'Current value: ' + str(record[key]) + ' | '
+            error_str += 'Errors: ' + str(errors[key]) + '\n'
         failed['val_errs'] = error_str
         failed_records.append(failed)
 

@@ -451,7 +451,6 @@ class REDCapConnection:
             return False
 
         num_records = json.loads(response.text)['count']
-        logging.info('Number of records imported: %s', num_records)
 
         return num_records
 
@@ -476,7 +475,5 @@ class REDCapConnection:
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
                          response.reason, response.text)
             return False
-
-        logging.info('Number of records deleted: %s', response.text)
 
         return int(response.text)

@@ -1,9 +1,15 @@
 """ Module for performing data quality checks """
 
-from typing import Tuple
+import logging
+
+from typing import Mapping, Tuple
 
 from validator.parser import Parser
-from validator.variable import Variable
+from validator.rule_validator import CustomErrorHandler, RuleValidator
+
+
+class QualityCheckException(Exception):
+    pass
 
 
 class QualityCheck:
@@ -12,42 +18,56 @@ class QualityCheck:
     def __init__(self,
                  primary_key: str,
                  rules_dir: str,
-                 forms: list[str] = None):
-        # Dictionary of variables defined in the project by variable name
-        self.variables: dict[str, Variable] = {}
+                 forms: list[str],
+                 strict: bool = True):
         # Primary key field of the project
         self.primary_key: str = primary_key
+        # Validation mode
+        self.strict = strict
+        # Schema of validation rules defined in the project by variable name
+        self.schema: dict[str, Mapping[str, object]] = {}
+        # Validator object for rule evaluation
+        self.validator: RuleValidator = None
 
         self.__load_rules(rules_dir, forms)
 
-    def __load_rules(self, rules_dir: str, forms: list[str] = None):
-        """ Load the set of variables and rules defined for the project """
-
-        # This function depends on how rules are represented,
-        # Load few test rules from a json file for now
+    def __load_rules(self, rules_dir: str, forms: list[str]):
+        """ Load the set of validation rules defined for the variables """
 
         if forms:
             parser = Parser(rules_dir)
-            self.variables = parser.parse_json(forms)
+            self.schema, found_all = parser.load_schema_from_json(forms)
+            if not found_all:
+                if self.strict:
+                    raise QualityCheckException(
+                        f'Missing validation rule definitions, please check {rules_dir} directory'
+                    )
+                else:
+                    logging.warning(
+                        'Skipping validation rules for the form(s) listed above'
+                    )
+        elif self.strict:
+            raise QualityCheckException(
+                'Failed to load validation rules, forms list is empty')
+        else:
+            logging.warning(
+                'No forms are specified to load the rule definitions, skipping validation rules'
+            )
 
-    def check_record(self, record: dict[str,
-                                        str]) -> Tuple[bool, dict[str, str]]:
-        """ Evaluate the record against the defined rules """
+        self.validator = RuleValidator(self.schema,
+                                       allow_unknown=not self.strict,
+                                       error_handler=CustomErrorHandler(
+                                           self.schema))
 
-        passed = True
-        errors = {}
+    def check_record_cerberus(
+            self, record: dict[str, str]) -> Tuple[bool, dict[str, list[str]]]:
+        """ Evaluate the record against the defined rules using cerberus """
 
-        # Iterate through the fields in the input record,
-        # and validates the quality rules if there's any defined
-        for key in record:
-            if key in self.variables:
-                variable: Variable = self.variables[key]
-                if variable:
-                    # TODO - need a better way for hadling data types
-                    # using casting for now
-                    value = variable.cast_value(record[key])
-                    if (value is not None) and (not variable.validate(value)):
-                        errors[key] = '\n'.join(variable.get_errors_list())
-                        passed = False
+        # All the fields in the input record represented as string values,
+        # cast the fields to appropriate data types according to the schema before validation
+        record = self.validator.cast_record(record)
+        # Validate the record against the defined schema
+        passed = self.validator.validate(record, normalize=False)
+        errors = self.validator.errors
 
         return passed, errors
