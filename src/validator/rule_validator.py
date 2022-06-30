@@ -1,7 +1,5 @@
 """ Module for defining validation rules """
 
-import cerberus.schema
-
 from typing import Mapping
 from cerberus.errors import BasicErrorHandler
 from cerberus.validator import Validator
@@ -121,23 +119,25 @@ class RuleValidator(Validator):
     def _validate_constraints(self, constraints: list[Mapping], field: str,
                               value: object):
         """ Validate the list of constraints specified for a field.
+            Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
             The rule's arguments are validated against this schema:
-                {'type': 'list'}
+                {'type': 'list',
+                 'schema': {'type': 'dict', 
+                            'schema':{'if': {'type': 'dict', 'required': True, 'empty': False},
+                                      'then': {'type': 'dict', 'required': True, 'empty': False}
+                                      }
+                            }
+                }
         """
 
         # Evaluate each constraint in the list individually,
         # validation fails if any of the constraints fails.
         for constraint in constraints:
-            try:
-                # Extract conditions for dependent fields
-                dependent_conds = constraint[SchemaDefs.IF]
-                # Extract conditions for self (i.e. field being evaluated)
-                self_conds = constraint[SchemaDefs.THEN]
-            except KeyError as e:
-                #TODO - move schema validation to Parser class
-                raise cerberus.schema.SchemaError(
-                    f'Missing required attribute {e} in constraint {str(constraint)} for field \'{field}\''
-                )
+            # Extract conditions for dependent fields
+            dependent_conds = constraint[SchemaDefs.IF]
+
+            # Extract conditions for self (i.e. field being evaluated)
+            self_conds = constraint[SchemaDefs.THEN]
 
             valid = True
             # Check whether all dependency conditions are valid (evaluated as logical AND operation)

@@ -1,6 +1,7 @@
 """ Module for performing data quality checks """
 
 import logging
+import cerberus.schema
 
 from typing import Mapping, Tuple
 
@@ -54,10 +55,13 @@ class QualityCheck:
                 'No forms are specified to load the rule definitions, skipping validation rules'
             )
 
-        self.validator = RuleValidator(self.schema,
-                                       allow_unknown=not self.strict,
-                                       error_handler=CustomErrorHandler(
-                                           self.schema))
+        try:
+            self.validator = RuleValidator(self.schema,
+                                           allow_unknown=not self.strict,
+                                           error_handler=CustomErrorHandler(
+                                               self.schema))
+        except cerberus.schema.SchemaError as e:
+            raise QualityCheckException(f'Schema Error - {e}')
 
     def check_record_cerberus(
             self, record: dict[str, str]) -> Tuple[bool, dict[str, list[str]]]:
