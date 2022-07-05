@@ -18,10 +18,19 @@ class REDCapConnection:
     """ This class implements the REDCap API methods """
 
     def __init__(self, token: str, url: str):
-        # API token for the desired REDCap project
+        """
+
+        Args:
+            token (str): API token for the REDCap project
+            url (str): REDCap instance URL
+
+        Raises:
+            REDCapConnectionException: If there is an error connecting to the specified project
+        """
+
         self.token: str = token
-        # REDCap instance URL
         self.url: str = url
+
         # RedCAP project attributes
         self.project_attr: dict[str, str | int] = None
         # Primary key field of the connected REDCap project
@@ -36,7 +45,11 @@ class REDCapConnection:
             raise REDCapConnectionException
 
     def __set_project_info(self) -> bool:
-        """ Export project info and set the project_attr property"""
+        """ Export project info and set the project_attr property.
+
+        Returns:
+            bool: True if project metadata successfully exported, else False
+        """
 
         data = {
             'token': self.token,
@@ -62,7 +75,11 @@ class REDCapConnection:
         return True
 
     def __set_primary_key(self) -> bool:
-        """ Find the primary key of the REDCap project and set the primary_key property """
+        """ Find the primary key of the REDCap project and set the primary_key property.
+
+        Returns:
+            bool: True if project primary key successfully set, else False
+        """
 
         data = {
             'token': self.token,
@@ -85,23 +102,50 @@ class REDCapConnection:
         return True
 
     def get_project_id(self) -> int:
-        """ Get the project title """
+        """ Get the project title.
+
+        Returns:
+            int: Project ID
+        """
+
         return self.project_attr['project_id']
 
     def get_project_title(self) -> str:
-        """ Get the project ID """
+        """ Get the project title.
+
+        Returns:
+            str: Project title
+        """
+
         return self.project_attr['project_title']
 
     def is_longitudinal(self) -> bool:
-        """ Get the longitudinal setting for the project """
+        """ Get the longitudinal setting for the project.
+
+        Returns:
+            bool: True if longitudinal setting enabled
+        """
+
         return bool(self.project_attr['is_longitudinal'])
 
     def has_repeating_instruments(self) -> bool:
-        """ Get the repeating instruments setting for the project """
+        """ Get the repeating instruments setting for the project.
+
+        Returns:
+            bool: True if repeating instruments enabled
+        """
+
         return bool(self.project_attr['has_repeating_instruments_or_events'])
 
     def export_data_dictionary(self, forms: list[str] = None) -> str | bool:
-        """ Export the project data-dictionary in JSON format"""
+        """ Export the project data-dictionary in JSON format.
+
+        Args:
+            forms (list[str], optional): List of forms to be included
+
+        Returns:
+            str | bool: Data dictionary in JSON format string or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -126,7 +170,11 @@ class REDCapConnection:
         return response.text
 
     def export_froms_list(self) -> list[dict[str, str]]:
-        """ Export the list of data entry forms in the project """
+        """ Export the list of data entry forms in the project.
+
+        Returns:
+            list[dict[str, str]]: List of forms [form_name, form_label]
+        """
 
         data = {'token': self.token, 'content': 'instrument', 'format': 'json'}
 
@@ -144,7 +192,11 @@ class REDCapConnection:
             return None
 
     def export_arms(self) -> str | bool:
-        """ Export the arm definitions of the project in JSON format"""
+        """ Export the arm definitions of the project in JSON format.
+
+        Returns:
+            str | bool: Arms definitons in JSON format string or False if an error occured
+        """
 
         data = {'token': self.token, 'content': 'arm', 'format': 'json'}
 
@@ -158,7 +210,11 @@ class REDCapConnection:
         return response.text
 
     def export_events(self) -> str | bool:
-        """ Export the event definitions of the project in JSON format"""
+        """ Export the event definitions of the project in JSON format.
+
+        Returns:
+            str | bool: Event definitons in JSON format string or False if an error occured
+        """
 
         data = {'token': self.token, 'content': 'event', 'format': 'json'}
 
@@ -172,7 +228,11 @@ class REDCapConnection:
         return response.text
 
     def export_form_event_mappings(self) -> str | bool:
-        """ Export the form - event mappings in the project in JSON format"""
+        """ Export the form - event mappings in the project in JSON format.
+
+        Returns:
+            str | bool: Form-Event mappings in JSON format string or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -192,7 +252,11 @@ class REDCapConnection:
         return response.text
 
     def export_repeating_instruments(self) -> str | bool:
-        """ Export the repeating instruments and event definitions in the project in JSON format"""
+        """ Export the repeating instruments and event definitions in the project in JSON format.
+
+        Returns:
+            str | bool: Repeating instruments defs in JSON format string or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -215,7 +279,15 @@ class REDCapConnection:
     def export_record_ids(self,
                           forms: list[str] = None,
                           events: list[str] = None) -> bool:
-        """ Find the list of unique record ids and set the record_ids property"""
+        """ Find the list of unique record ids and set the record_ids property.
+
+        Args:
+            forms (list[str], optional): List of forms to be included
+            events (list[str], optional): List of events to be included
+
+        Returns:
+            bool: True if unique record ids successfully exported, else False
+        """
 
         data = {
             'token': self.token,
@@ -263,7 +335,18 @@ class REDCapConnection:
                        record_ids: list[int | str] = None,
                        forms: list[str] = None,
                        events: list[str] = None) -> str | bool:
-        """ Export records in CSV/JSON format - default is CSV """
+        """ Export records from the project.
+
+        Args:
+            exp_format (str, optional): Export format. Defaults to 'csv'.
+            record_ids (list[int | str], optional): List of record IDs to be exported,
+                                                    If not specified all records exported.
+            forms (list[str], optional): List of forms to be included
+            events (list[str], optional): List of events to be included
+
+        Returns:
+            str | bool: List of records in JSON format string or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -314,7 +397,14 @@ class REDCapConnection:
 
     def import_arms(self, arms: str) -> int | bool:
         """ Import project arms definitions in JSON format
-            Delete all existing arms and import"""
+            Delete all existing arms and import.
+
+        Args:
+            arms (str): Arms to be imported as JSON format string
+
+        Returns:
+            int | bool: Number of arms imported or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -336,8 +426,15 @@ class REDCapConnection:
         return int(response.text)
 
     def import_events(self, events: str) -> int | bool:
-        """Import project event definitions in JSON format
-            Delete all existing events and import"""
+        """ Import project event definitions in JSON format
+            Delete all existing events and import.
+
+        Args:
+            events (str): Events to be imported as JSON format string
+
+        Returns:
+            int | bool: Number of events imported or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -359,7 +456,14 @@ class REDCapConnection:
         return int(response.text)
 
     def import_data_dictionary(self, data_dict: str) -> int | bool:
-        """ Import project data-dictionary in JSON format"""
+        """ Import project data-dictionary in JSON format.
+
+        Args:
+            data_dict (str): Data-dictionary to be imported as JSON format string
+
+        Returns:
+            int | bool: Number of fields imported or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -380,7 +484,14 @@ class REDCapConnection:
         return int(response.text)
 
     def import_form_event_mappings(self, form_event_map: str) -> int | bool:
-        """ Import project instrument-event mappings in JSON format"""
+        """ Import project instrument-event mappings in JSON format.
+
+        Args:
+            form_event_map (str): instrument-event mappings to be imported as JSON format string
+
+        Returns:
+            int | bool: Number of form-event mappings imported or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -403,7 +514,14 @@ class REDCapConnection:
         return int(response.text)
 
     def import_repeating_instruments(self, repeating_ins: str) -> int | bool:
-        """ Import project repeating instrument definitions in JSON format"""
+        """ Import project repeating instrument definitions in JSON format.
+
+        Args:
+            repeating_ins (str): Repeating instrument to be imported in JSON format string
+
+        Returns:
+            int | bool: Number of repeating instruments imported or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -428,7 +546,15 @@ class REDCapConnection:
     def import_records(self,
                        values: str,
                        imp_format: str = 'csv') -> int | bool:
-        """ Import records in CSV/JSON format - default is CSV """
+        """ Import records to the project.
+
+        Args:
+            values (str): List of records to be imported (in csv or json format string)
+            imp_format (str, optional): Import formart. Defaults to 'csv'.
+
+        Returns:
+            int | bool: Number of records imported or False if an error occured
+        """
 
         data = {
             'token': self.token,
@@ -455,7 +581,14 @@ class REDCapConnection:
         return num_records
 
     def delete_records(self, record_ids: list[int | str]) -> int | bool:
-        """ Delete records"""
+        """ Delete records from project.
+
+        Args:
+            record_ids (list[int  |  str]): List of record IDs to be deleted
+
+        Returns:
+            int | bool: Number of records deleted or False if an error occured
+        """
 
         data = {
             'token': self.token,

@@ -30,7 +30,11 @@ class Params:
 
     @classmethod
     def load_parameters(cls) -> bool:
-        """ Load project parameters to class attributes """
+        """ Load project parameters to class attribute.
+
+        Returns:
+            bool: True if all parameters successfully loaded, else False
+        """
 
         # Load environment variables
         try:

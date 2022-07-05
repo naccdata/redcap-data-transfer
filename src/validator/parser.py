@@ -13,13 +13,26 @@ class Parser:
     rules_dir = './rules/'
 
     def __init__(self, rules_dir: str):
-        # Location where rule definitions are stored
+        """
+        
+        Args:
+            rules_dir (str): Location where rule definitions are stored
+        """
+
         self.rules_dir = rules_dir
 
     def load_schema_from_json(
             self,
             forms: list[str]) -> Tuple[dict[str, Mapping[str, object]], bool]:
-        """ Load rule schema from JSON form definitions """
+        """Load rule schema from JSON form definitions.
+
+        Args:
+            forms (list[str]): List of form names to load the rule definitions
+
+        Returns:
+            dict[str, Mapping[str, object]: Schema object created from rule definitions, 
+            bool: True if all form definitions successfully parsed
+        """
 
         logging.info(
             'Loading data validation schema from JSON rule definitions ...')

@@ -24,17 +24,25 @@ class DataHandler:
                  forms: list[str] = None,
                  events: list[str] = None,
                  qc_err_form: str = None):
+        """
+
+        Args:
+            src_prj (REDCapConnection): Source REDCap connection
+            dest_prj (REDCapConnection): Destination REDCap connection
+            forms (list[str], optional): List of form names to be included in data transfer.
+            events (list[str], optional): List of events to be included in data transfer.
+            qc_err_form (str, optional): Name of the REDCap form for reporting validation errors.
+        """
+
         self.src_project: REDCapConnection = src_prj
         self.dest_project: REDCapConnection = dest_prj
+        self.qc_err_form = qc_err_form
+
         # List of all form names in the source project with labels
         self.all_forms: list[dict[str, str]] = src_prj.export_froms_list()
-        # Name of the REDCap form for reporting validation errors
-        self.qc_err_form = qc_err_form
-        # List of form names to be included in data transfer,
-        # if not specified, all forms will be included
+        # If forms not specified, all forms will be included
         self.forms: list[str] = forms if forms else self.get_forms_list()
-        # List of events to be included in data transfer,
-        # if not specified all events will be included
+        # If events not specified all events will be included
         self.events: list[str] = events
         # Data dictionary for the data entry forms
         # this includes all metadata related to form fields
@@ -43,7 +51,11 @@ class DataHandler:
         self.qual_check: QualityCheck = None
 
     def get_forms_list(self) -> list[str]:
-        """ Get the list of forms in the source project """
+        """ Get the list of forms in the source project.
+
+        Returns:
+            list[str]: List of form names
+        """
 
         forms_list = []
         if self.all_forms:
@@ -57,19 +69,37 @@ class DataHandler:
         return forms_list
 
     def get_form_name(self, var_name: str) -> str:
-        """ Find the form name for a given field """
+        """ Find the name of the form that the given variable belongs to.
+
+        Args:
+            var_name (str): Variable name
+
+        Returns:
+            str: Form name
+        """
 
         row = self.data_dic[self.data_dic['field_name'] == var_name]
         return row['form_name'].values[0]
 
     def get_field_label(self, var_name: str) -> str:
-        """ Find the label for a given field """
+        """ Find the label for a given field.
+
+        Args:
+            var_name (str): Variable name
+
+        Returns:
+            str: Field label
+        """
 
         row = self.data_dic[self.data_dic['field_name'] == var_name]
         return row['field_label'].values[0]
 
     def compare_project_settings(self) -> bool:
-        """ Compare the source and destination project settings """
+        """ Compare the source and destination project settings.
+
+        Returns:
+            bool: True if project settings match, else False
+        """
 
         # Compare source and destination project data-dictionaries, cannot be empty
         src_dict = self.src_project.export_data_dictionary(self.forms)
@@ -146,7 +176,15 @@ class DataHandler:
         return True
 
     def set_quality_checker(self, rules_dir: str, strict: bool = True) -> bool:
-        """ Set up QualityCheck instance to run data validation rules """
+        """ Set up QualityCheck instance to run data validation rules.
+
+        Args:
+            rules_dir (str): Location where rule definitions are stored
+            strict (bool, optional): Validation mode. Defaults to True
+
+        Returns:
+            bool: False if QualityCheckException occurs, else True
+        """
 
         try:
             self.qual_check = QualityCheck(self.src_project.primary_key,
@@ -157,7 +195,12 @@ class DataHandler:
             return False
 
     def transfer_data(self, batch_size_val: int, move_records: bool = True):
-        """ Move/copy records from source project to destination project """
+        """ Move/copy records from source project to destination project.
+
+        Args:
+            batch_size_val (int): Number of records to be processed at a time
+            move_records (bool, optional): Move records to destination and delete from source. Defaults to True.
+        """
 
         if not self.src_project.export_record_ids(self.forms, self.events):
             return
@@ -254,7 +297,16 @@ class DataHandler:
     def validate_data(
         self, records_str: str
     ) -> Tuple[list[str], list[dict[str, str]], list[dict[str, str]]]:
-        """ Entry point to the data validation """
+        """ Entry point to the data validation.
+
+        Args:
+            records_str (str): List of input records as a JSON format string
+
+        Returns:
+            list[str]: List of valid record IDs,
+            list[dict[str, str]]: List of valid records, 
+            list[dict[str, str]]: List of failed records with error messages
+        """
 
         valid_records = []
         failed_records = []
@@ -279,6 +331,11 @@ class DataHandler:
                                         failed_records: list[dict[str, str]]):
         """ Create an object to report the validation errors, 
             these will be imported to REDCap project in JSON format
+
+        Args:
+            record (dict[str, str]): Failed record
+            errors (dict[str, list[str]]): Error list for each variable
+            failed_records (list[dict[str, str]]): Failed records list, to append the generated error report
         """
 
         record_id = record[self.src_project.primary_key]

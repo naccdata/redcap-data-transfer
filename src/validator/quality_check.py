@@ -21,9 +21,17 @@ class QualityCheck:
                  rules_dir: str,
                  forms: list[str],
                  strict: bool = True):
-        # Primary key field of the project
+        """
+
+        Args:
+            primary_key (str): Primary key field of the project
+            rules_dir (str): Location where rule definitions are stored
+            forms (list[str]): List of form names to load the rule definitions
+            strict (bool, optional): Validation mode. Defaults to True. 
+                                     If False, unknown forms/fields are skipped from validation
+        """
+
         self.primary_key: str = primary_key
-        # Validation mode
         self.strict = strict
         # Schema of validation rules defined in the project by variable name
         self.schema: dict[str, Mapping[str, object]] = {}
@@ -33,7 +41,16 @@ class QualityCheck:
         self.__load_rules(rules_dir, forms)
 
     def __load_rules(self, rules_dir: str, forms: list[str]):
-        """ Load the set of validation rules defined for the variables """
+        """ Load the set of validation rules defined for the variables
+
+        Args:
+            rules_dir (str): Location where rule definitions are stored
+            forms (list[str]): List of form names to load the rule definitions
+
+        Raises:
+            QualityCheckException: If there is an schema error 
+                                   or if some form definitons are missing in strict mode
+        """
 
         if forms:
             parser = Parser(rules_dir)
@@ -65,7 +82,15 @@ class QualityCheck:
 
     def check_record_cerberus(
             self, record: dict[str, str]) -> Tuple[bool, dict[str, list[str]]]:
-        """ Evaluate the record against the defined rules using cerberus """
+        """ Evaluate the record against the defined rules using cerberus.
+
+        Args:
+            record (dict[str, str]): Record to be validated, dict[field, value]
+
+        Returns:
+            bool: True if the record satisfied all rules
+            dict[str, list[str]: List of validation errors by variable (if any)
+        """
 
         # All the fields in the input record represented as string values,
         # cast the fields to appropriate data types according to the schema before validation

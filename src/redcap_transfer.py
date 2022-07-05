@@ -10,8 +10,9 @@ from params import Params
 from redcap_connection import REDCapConnection, REDCapConnectionException
 
 
-# programm entry
 def main():
+    """ Programm entry """
+
     # Set up logger
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s] - %(message)s',
