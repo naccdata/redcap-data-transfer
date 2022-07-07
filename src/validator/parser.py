@@ -1,26 +1,10 @@
-""" Module for parsing validation rules """
+""" Module for parsing rule definition schemas """
 
 import json
 import logging
 
 from json.decoder import JSONDecodeError
-from typing import Any
-
-from validator.rule import MaxValueRule
-from validator.rule import NumericRangeRule
-from validator.rule import Rule
-from validator.variable import Variable
-
-
-class Keys:
-    FIELDS = 'fields'
-    FLD_NAME = 'name'
-    FLD_TYPE = 'type'
-    FLD_LABEL = 'label'
-    FLD_RULES = 'rules'
-    RULE_CODE = 'code'
-    RULE_MIN = 'min'
-    RULE_MAX = 'max'
+from typing import Mapping, Tuple
 
 
 class Parser:
@@ -28,15 +12,33 @@ class Parser:
 
     rules_dir = './rules/'
 
-    def __init__(self, rules_dir):
+    def __init__(self, rules_dir: str):
+        """
+        
+        Args:
+            rules_dir (str): Location where rule definitions are stored
+        """
+
         self.rules_dir = rules_dir
 
-    def parse_json(self, forms: list[str]) -> dict[str, Variable]:
-        """ Populate variables dictionary from form definitions """
+    def load_schema_from_json(
+            self,
+            forms: list[str]) -> Tuple[dict[str, Mapping[str, object]], bool]:
+        """Load rule schema from JSON form definitions.
 
-        logging.info('Loading data validation rules...')
+        Args:
+            forms (list[str]): List of form names to load the rule definitions
 
-        variables: dict[str, Variable] = {}
+        Returns:
+            dict[str, Mapping[str, object]: Schema object created from rule definitions, 
+            bool: True if all form definitions successfully parsed
+        """
+
+        logging.info(
+            'Loading data validation schema from JSON rule definitions ...')
+
+        full_schema: dict[str, Mapping[str, object]] = {}
+        found_all = True
         for form in forms:
             form_def_file = self.rules_dir + form + '.json'
             try:
@@ -44,75 +46,16 @@ class Parser:
                     form_def = json.load(file_object)
             except (FileNotFoundError, OSError, JSONDecodeError,
                     TypeError) as e:
-                logging.error(
+                logging.warning(
                     'Failed to load the form definition file - %s : %s',
                     form_def_file, e)
-                logging.warning('Skipping validations for the form - %s', form)
+                found_all = False
                 continue
 
-            if Keys.FIELDS in form_def:
-                field_defs = form_def[Keys.FIELDS]
-                for field_def in field_defs:
-                    if self.validate_field_def(field_def):
-                        field_name = field_def[Keys.FLD_NAME]
-                        rule_defs = field_def[Keys.FLD_RULES]
-                        rules = []
-                        for rule_def in rule_defs:
-                            if self.validate_rule_def(rule_def):
-                                rule_obj = self.get_rule_object(rule_def)
-                                if rule_obj is not None:
-                                    rules.append(rule_obj)
-                        if len(rules) != 0:
-                            variable = Variable(field_name,
-                                                field_def[Keys.FLD_TYPE],
-                                                field_def[Keys.FLD_LABEL],
-                                                rules)
-                            variables[field_name] = variable
+            if form_def:
+                # If there's any duplicate keys(i.e. variable names) across forms,
+                # they will be replaced with the latest definitions.
+                # It is assumed all variable names are unique within a project
+                full_schema.update(form_def)
 
-        return variables
-
-    def validate_field_def(self, field_def: dict[str, Any]) -> bool:
-        """ Validate the field definition """
-
-        if Keys.FLD_NAME not in field_def:
-            return False
-        if Keys.FLD_TYPE not in field_def:
-            return False
-        if Keys.FLD_LABEL not in field_def:
-            return False
-        if Keys.FLD_RULES not in field_def:
-            return False
-
-        return True
-
-    def validate_rule_def(self, rule_def: dict[str, Any]) -> bool:
-        """ Validate the rule definition """
-
-        if Keys.RULE_CODE not in rule_def:
-            return False
-
-        if rule_def[Keys.RULE_CODE] == 'NUMRANGE':
-            if Keys.RULE_MAX not in rule_def:
-                return False
-            if Keys.RULE_MIN not in rule_def:
-                return False
-
-        if rule_def[Keys.RULE_CODE] == 'MAXVAL':
-            if Keys.RULE_MAX not in rule_def:
-                return False
-
-        return True
-
-    def get_rule_object(self, rule_def: dict[str, Any]) -> Rule | None:
-        """ Populate respective rule object according to rule code """
-
-        rule = None
-        code = rule_def[Keys.RULE_CODE]
-        if code == 'NUMRANGE':
-            rule = NumericRangeRule(code, rule_def[Keys.RULE_MIN],
-                                    rule_def[Keys.RULE_MAX])
-
-        if code == 'MAXVAL':
-            rule = MaxValueRule(code, rule_def[Keys.RULE_MAX])
-
-        return rule
+        return full_schema, found_all

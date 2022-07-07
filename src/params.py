@@ -18,10 +18,11 @@ class Params:
 
     # Parameters with default values
     BATCH_SIZE: int = 100
-    MOVE_RECORDS: int = 0
+    MOVE_RECORDS: bool = True
     LOG_FILE_DIR: str = './logs/'
     LOG_FILE_PREFIX: str = 'validation-errors-'
     RULES_DIR: str = './rules/'
+    STRICT_MODE: bool = True
 
     # Optional parameters
     CONF_FILE_PATH = None
@@ -29,7 +30,11 @@ class Params:
 
     @classmethod
     def load_parameters(cls) -> bool:
-        """ Load project parameters to class attributes """
+        """ Load project parameters to class attribute.
+
+        Returns:
+            bool: True if all parameters successfully loaded, else False
+        """
 
         # Load environment variables
         try:
@@ -41,15 +46,19 @@ class Params:
                                              default=100,
                                              cast=int)
             cls.MOVE_RECORDS = decouple.config('MOVE_RECORDS',
-                                               default=0,
-                                               cast=int)
+                                               default=True,
+                                               cast=bool)
             cls.LOG_FILE_DIR = decouple.config('LOG_FILE_DIR',
-                                                default='./logs/')
+                                               default='./logs/')
             cls.LOG_FILE_PREFIX = decouple.config('LOG_FILE_PREFIX',
                                                   default='validation-errors-')
             cls.RULES_DIR = decouple.config('RULES_DIR', default='./rules/')
+            cls.STRICT_MODE = decouple.config('STRICT_MODE',
+                                              default=True,
+                                              cast=bool)
             cls.CONF_FILE_PATH = decouple.config('CONF_FILE_PATH',
                                                  default=None)
+
         except decouple.UndefinedValueError as e:
             logging.critical('Failed to load required parameters: %s', e)
             return False

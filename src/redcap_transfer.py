@@ -10,8 +10,9 @@ from params import Params
 from redcap_connection import REDCapConnection, REDCapConnectionException
 
 
-# programm entry
 def main():
+    """ Programm entry """
+
     # Set up logger
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s] - %(message)s',
@@ -65,8 +66,10 @@ def main():
     logging.info('Comparing source and destination project compatibility...')
     if data_handler.compare_project_settings():
         # Create QualityChecker instance to validate data
-        data_handler.set_quality_checker(Params.RULES_DIR)
-            
+        if not data_handler.set_quality_checker(Params.RULES_DIR,
+                                                Params.STRICT_MODE):
+            sys.exit(1)
+
         # Move/copy the records from source project to destination project
         logging.info(
             '================= STARTING data transfer ==================')
