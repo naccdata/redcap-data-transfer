@@ -26,7 +26,7 @@ class Params:
 
     # Optional parameters
     CONF_FILE_PATH = None
-    extra_params = {}
+    EXTRA_PARAMS = {}
 
     @classmethod
     def load_parameters(cls) -> bool:
@@ -74,7 +74,7 @@ class Params:
             try:
                 with open(cls.CONF_FILE_PATH, 'r',
                           encoding='utf-8') as file_object:
-                    cls.extra_params = json.load(file_object)
+                    cls.EXTRA_PARAMS = json.load(file_object)
             except (FileNotFoundError, OSError, JSONDecodeError,
                     TypeError) as e:
                 logging.critical('Failed to load the configuration file: %s',

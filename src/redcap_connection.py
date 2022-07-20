@@ -14,6 +14,18 @@ class REDCapConnectionException(Exception):
     pass
 
 
+class REDCapKeys:
+    """ Class to store REDCap attribute labels """
+
+    RDCP_EVENT_NAME = 'redcap_event_name'
+    RDCP_RPT_INSTR = 'redcap_repeat_instrument'
+    RDCP_RPT_INSTN = 'redcap_repeat_instance'
+    INST_NAME = 'instrument_name'
+    FORM_NAME = 'form_name'
+    FLD_NAME = 'field_name'
+    FLD_LBL = 'field_label'
+
+
 class REDCapConnection:
     """ This class implements the REDCap API methods """
 
@@ -28,21 +40,48 @@ class REDCapConnection:
             REDCapConnectionException: If there is an error connecting to the specified project
         """
 
-        self.token: str = token
-        self.url: str = url
+        self._token: str = token
+        self._url: str = url
 
         # RedCAP project attributes
-        self.project_attr: dict[str, str | int] = None
+        self._project_attr: dict[str, object] = None
         # Primary key field of the connected REDCap project
-        self.primary_key: str = None
+        self._primary_key: str = None
         # List of record ids in the project (values of primary key field)
-        self.record_ids: list[str | int] = None
+        self._record_ids: list[str | int] = None
 
         if not self.__set_project_info():
             raise REDCapConnectionException
 
         if not self.__set_primary_key():
             raise REDCapConnectionException
+
+    @property
+    def primary_key(self) -> str:
+        """ The primary_key property
+
+        Returns:
+            str: Primary key field of the REDCap project
+        """
+        return self._primary_key
+
+    @property
+    def project_attr(self) -> dict[str, object]:
+        """ The project_attr property
+
+        Returns:
+            dict[str, object]: Attributes of the REDCap project
+        """
+        return self._project_attr
+
+    @property
+    def record_ids(self) -> list[str | int]:
+        """ The record_ids property
+
+        Returns:
+            list[str | int]: List of record ids (primary keys) in the project
+        """
+        return self._record_ids
 
     def __set_project_info(self) -> bool:
         """ Export project info and set the project_attr property.
@@ -52,13 +91,13 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'project',
             'format': 'json',
             'returnFormat': 'json'
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
 
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export project information')
@@ -67,7 +106,7 @@ class REDCapConnection:
             return False
 
         try:
-            self.project_attr = response.json()
+            self._project_attr = response.json()
         except JSONDecodeError as e:
             logging.critical('Error in parsing project information: %s', e)
             return False
@@ -82,13 +121,13 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'exportFieldNames',
             'format': 'csv',
             'returnFormat': 'json'
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to retrive the REDCap project primary key')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -97,7 +136,7 @@ class REDCapConnection:
 
         # Read the response into a pandas data frame and get the primary key
         df_fields = pd.read_csv(io.StringIO(response.text))
-        self.primary_key = df_fields.at[0, 'export_field_name']
+        self._primary_key = df_fields.at[0, 'export_field_name']
 
         return True
 
@@ -108,7 +147,7 @@ class REDCapConnection:
             int: Project ID
         """
 
-        return self.project_attr['project_id']
+        return self._project_attr['project_id']
 
     def get_project_title(self) -> str:
         """ Get the project title.
@@ -117,7 +156,7 @@ class REDCapConnection:
             str: Project title
         """
 
-        return self.project_attr['project_title']
+        return self._project_attr['project_title']
 
     def is_longitudinal(self) -> bool:
         """ Get the longitudinal setting for the project.
@@ -126,7 +165,7 @@ class REDCapConnection:
             bool: True if longitudinal setting enabled
         """
 
-        return bool(self.project_attr['is_longitudinal'])
+        return bool(self._project_attr['is_longitudinal'])
 
     def has_repeating_instruments(self) -> bool:
         """ Get the repeating instruments setting for the project.
@@ -135,7 +174,7 @@ class REDCapConnection:
             bool: True if repeating instruments enabled
         """
 
-        return bool(self.project_attr['has_repeating_instruments_or_events'])
+        return bool(self._project_attr['has_repeating_instruments_or_events'])
 
     def export_data_dictionary(self, forms: list[str] = None) -> str | bool:
         """ Export the project data-dictionary in JSON format.
@@ -148,7 +187,7 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'metadata',
             'format': 'json',
             'returnFormat': 'json'
@@ -159,7 +198,7 @@ class REDCapConnection:
             for i, form in enumerate(forms):
                 data[f'forms[{ i }]'] = form
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
 
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export the data dictionary')
@@ -176,9 +215,13 @@ class REDCapConnection:
             list[dict[str, str]]: List of forms [form_name, form_label]
         """
 
-        data = {'token': self.token, 'content': 'instrument', 'format': 'json'}
+        data = {
+            'token': self._token,
+            'content': 'instrument',
+            'format': 'json'
+        }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export data entry forms list')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -198,9 +241,9 @@ class REDCapConnection:
             str | bool: Arms definitons in JSON format string or False if an error occured
         """
 
-        data = {'token': self.token, 'content': 'arm', 'format': 'json'}
+        data = {'token': self._token, 'content': 'arm', 'format': 'json'}
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export arms definitions')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -216,9 +259,9 @@ class REDCapConnection:
             str | bool: Event definitons in JSON format string or False if an error occured
         """
 
-        data = {'token': self.token, 'content': 'event', 'format': 'json'}
+        data = {'token': self._token, 'content': 'event', 'format': 'json'}
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export events definitions')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -235,13 +278,13 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'formEventMapping',
             'format': 'json',
             'returnFormat': 'json'
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
 
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export the form - event mappings')
@@ -259,13 +302,13 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'repeatingFormsEvents',
             'format': 'json',
             'returnFormat': 'json'
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
 
         if response.status_code != HTTPStatus.OK:
             logging.error(
@@ -290,12 +333,12 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'record',
             'action': 'export',
             'format': 'csv',
             'type': 'flat',
-            'fields[0]': self.primary_key,
+            'fields[0]': self._primary_key,
             'returnFormat': 'json'
         }
 
@@ -309,7 +352,7 @@ class REDCapConnection:
             for i, event in enumerate(events):
                 data[f'events[{ i }]'] = event
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to retrive the record IDs')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -326,7 +369,10 @@ class REDCapConnection:
 
         # Get the list of unique values in the primary key column
         # Primary key can be duplicated if the project has multiple arms/events
-        self.record_ids = df_obj[self.primary_key].unique().tolist()
+        self._record_ids = df_obj[self._primary_key].unique().tolist()
+
+        logging.info('Total number of instances - %s',
+                     len(df_obj[self._primary_key]))
 
         return True
 
@@ -349,7 +395,7 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'record',
             'action': 'export',
             'format': exp_format,
@@ -379,9 +425,9 @@ class REDCapConnection:
         # If exporting only subset of forms or events, make sure to request the primary key field,
         # need it for importing data to the destination project
         if add_pk_field:
-            data['fields[0]'] = self.primary_key
+            data['fields[0]'] = self._primary_key
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to export records')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -407,7 +453,7 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'arm',
             'action': 'import',
             'format': 'json',
@@ -415,7 +461,7 @@ class REDCapConnection:
             'data': arms
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import arms')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -437,7 +483,7 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'event',
             'action': 'import',
             'format': 'json',
@@ -445,7 +491,7 @@ class REDCapConnection:
             'data': events
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import events')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -466,14 +512,14 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'metadata',
             'format': 'json',
             'data': data_dict,
             'returnFormat': 'json'
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import data dictionary')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -494,14 +540,14 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'formEventMapping',
             'data': form_event_map,
             'format': 'json',
             'returnFormat': 'json'
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import form event mappings')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -524,14 +570,14 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'repeatingFormsEvents',
             'data': repeating_ins,
             'format': 'json',
             'returnFormat': 'json'
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import form event mappings')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -557,7 +603,7 @@ class REDCapConnection:
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'record',
             'action': 'import',
             'format': imp_format,
@@ -569,7 +615,7 @@ class REDCapConnection:
             'returnFormat': 'json'
         }
 
-        response = requests.post(self.url, data=data)
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to import records')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),
@@ -580,18 +626,21 @@ class REDCapConnection:
 
         return num_records
 
-    def delete_records(self, record_ids: list[int | str]) -> int | bool:
-        """ Delete records from project.
+    def delete_records(self,
+                       record_ids: list[int | str],
+                       instrument: str = None) -> int | bool:
+        """ Delete records from the project.
 
         Args:
             record_ids (list[int  |  str]): List of record IDs to be deleted
+            instrument (str, optional): REDCap instrument name
 
         Returns:
             int | bool: Number of records deleted or False if an error occured
         """
 
         data = {
-            'token': self.token,
+            'token': self._token,
             'content': 'record',
             'action': 'delete',
             'returnFormat': 'json'
@@ -602,7 +651,52 @@ class REDCapConnection:
             for i, record_id in enumerate(record_ids):
                 data[f'records[{ i }]'] = record_id
 
-        response = requests.post(self.url, data=data)
+        if instrument:
+            data['instrument'] = instrument
+
+        response = requests.post(self._url, data=data)
+        if response.status_code != HTTPStatus.OK:
+            logging.error('Failed to delete records')
+            logging.info('HTTP Status: %s %s : %s', str(response.status_code),
+                         response.reason, response.text)
+            return False
+
+        return int(response.text)
+
+    def delete_record(self,
+                      record_id: str,
+                      instrument: str = None,
+                      event: str = None,
+                      instance: int = None) -> int | bool:
+        """ Delete a record from the project.
+
+        Args:
+            record_id (str): Record to be deleted
+            instrument (str, optional): REDCap instrument name.
+            event (str, optional): REDCap event name.
+            instance (_type_, optional): REDCap repeating instance number.
+
+        Returns:
+            int | bool: Number of records deleted or False if an error occured
+        """
+
+        data = {
+            'token': self._token,
+            'content': 'record',
+            'action': 'delete',
+            'returnFormat': 'json'
+        }
+
+        # Delete the specified record.
+        data['records[0]'] = record_id
+        if instrument:
+            data['instrument'] = instrument
+        if event:
+            data['event'] = event
+        if instance:
+            data['repeat_instance'] = instance
+
+        response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
             logging.error('Failed to delete records')
             logging.info('HTTP Status: %s %s : %s', str(response.status_code),

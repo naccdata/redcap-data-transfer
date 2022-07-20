@@ -12,6 +12,7 @@ from redcap_connection import REDCapConnection, REDCapConnectionException
 
 def main():
     """ Programm entry """
+    start_time = dt.now()
 
     # Set up logger
     logging.basicConfig(level=logging.INFO,
@@ -46,18 +47,18 @@ def main():
     logging.info('Destination Project: %s', dest_project.get_project_title())
 
     forms = None
-    if 'forms' in Params.extra_params and \
-        Params.extra_params['forms'].strip():
-        forms = [x.strip() for x in Params.extra_params['forms'].split(',')]
+    if 'forms' in Params.EXTRA_PARAMS and \
+        Params.EXTRA_PARAMS['forms'].strip():
+        forms = [x.strip() for x in Params.EXTRA_PARAMS['forms'].split(',')]
 
     events = None
-    if 'events' in Params.extra_params and \
-        Params.extra_params['events'].strip():
-        events = [x.strip() for x in Params.extra_params['events'].split(',')]
+    if 'events' in Params.EXTRA_PARAMS and \
+        Params.EXTRA_PARAMS['events'].strip():
+        events = [x.strip() for x in Params.EXTRA_PARAMS['events'].split(',')]
 
     qc_err_form = 'data_quality_check_errors'
-    if 'errors_form' in Params.extra_params:
-        qc_err_form = Params.extra_params['errors_form']
+    if 'errors_form' in Params.EXTRA_PARAMS:
+        qc_err_form = Params.EXTRA_PARAMS['errors_form']
 
     data_handler = DataHandler(src_project, dest_project, forms, events,
                                qc_err_form)
@@ -76,6 +77,9 @@ def main():
         data_handler.transfer_data(Params.BATCH_SIZE, Params.MOVE_RECORDS)
         logging.info(
             '================== ENDING data transfer ===================')
+
+    end_time = dt.now()
+    logging.info('Total runtime - %s', end_time - start_time)
 
 
 def setup_logfile():
