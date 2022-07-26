@@ -316,7 +316,7 @@ class DataHandler:
         valid_ids = set()
         records_list = json.loads(records_str)
 
-        logging.info('Num input instances: %s', len(records_list))
+        logging.info('Number of input instances: %s', len(records_list))
         # Check each record against the defined rules
         for record in records_list:
             record_id = record[self._src_project.primary_key]
@@ -328,8 +328,8 @@ class DataHandler:
                 self.compose_error_report_for_record(record, dict_erros,
                                                      failed_records)
 
-        logging.info('Num valid instances: %s', len(valid_records))
-        logging.info('Num failed instances: %s', len(failed_records))
+        logging.info('Number of valid instances: %s', len(valid_records))
+        logging.info('Number failed instances: %s', len(failed_records))
 
         return list(valid_ids), valid_records, failed_records
 
@@ -388,11 +388,12 @@ class DataHandler:
             int | bool: Number of records deleted or False if an error occured
         """
 
-        is_subset = len(self._forms) < (len(self._all_forms) - 1)
+        is_subset = (len(self._forms) <
+                     (len(self._all_forms) - 1)) or self._events
 
         if is_subset:
             logging.warning(
-                'Records not removed from the source project as only a subset of the forms are validated'
+                'Records not removed from the source project as only a subset of the forms/events were validated'
             )
             return False
         else:

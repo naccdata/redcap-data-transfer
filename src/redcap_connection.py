@@ -626,14 +626,11 @@ class REDCapConnection:
 
         return num_records
 
-    def delete_records(self,
-                       record_ids: list[int | str],
-                       instrument: str = None) -> int | bool:
+    def delete_records(self, record_ids: list[int | str]) -> int | bool:
         """ Delete records from the project.
 
         Args:
             record_ids (list[int  |  str]): List of record IDs to be deleted
-            instrument (str, optional): REDCap instrument name
 
         Returns:
             int | bool: Number of records deleted or False if an error occured
@@ -650,9 +647,6 @@ class REDCapConnection:
         if record_ids is not None:
             for i, record_id in enumerate(record_ids):
                 data[f'records[{ i }]'] = record_id
-
-        if instrument:
-            data['instrument'] = instrument
 
         response = requests.post(self._url, data=data)
         if response.status_code != HTTPStatus.OK:
