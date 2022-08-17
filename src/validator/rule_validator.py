@@ -291,19 +291,14 @@ class RuleValidator(Validator):
                 orderby, self.document)
 
         if prev_ins:
-            #logging.info(prev_ins)
-            #logging.info(self.document)
             prev_ins = self.cast_record(prev_ins)
             self.__prev_records[record_id] = prev_ins
-            #logging.info(prev_ins)
             constraints = temporalrules[SchemaDefs.CONSTRAINTS]
             for constraint in constraints:
                 prev_conds = constraint[SchemaDefs.PREVIOUS]
                 prev_schema = {field: prev_conds}
-                #logging.info(prev_schema)
                 curr_conds = constraint[SchemaDefs.CURRENT]
                 curr_schema = {field: curr_conds}
-                #logging.info(curr_schema)
 
                 prev_validator = RuleValidator(
                     prev_schema,
