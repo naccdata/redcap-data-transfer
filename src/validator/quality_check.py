@@ -10,6 +10,8 @@ from validator.rule_validator import CustomErrorHandler, RuleValidator
 
 
 class QualityCheckException(Exception):
+    """ Raised if something goes wrong while loading rule definitions """
+
     pass
 
 
@@ -17,28 +19,46 @@ class QualityCheck:
     """ Class to run the validation rules """
 
     def __init__(self,
-                 primary_key: str,
+                 pk_field: str,
                  rules_dir: str,
                  forms: list[str],
                  strict: bool = True):
         """
 
         Args:
-            primary_key (str): Primary key field of the project
+            pk_field (str): Primary key field of the project
             rules_dir (str): Location where rule definitions are stored
             forms (list[str]): List of form names to load the rule definitions
             strict (bool, optional): Validation mode. Defaults to True. 
                                      If False, unknown forms/fields are skipped from validation
         """
 
-        self.primary_key: str = primary_key
-        self.strict = strict
+        self.__pk_field: str = pk_field
+        self.__strict = strict
         # Schema of validation rules defined in the project by variable name
-        self.schema: dict[str, Mapping[str, object]] = {}
+        self.__schema: dict[str, Mapping[str, object]] = {}
         # Validator object for rule evaluation
-        self.validator: RuleValidator = None
+        self.__validator: RuleValidator = None
 
         self.__load_rules(rules_dir, forms)
+
+    @property
+    def schema(self) -> dict[str, Mapping[str, object]]:
+        """ The schema property
+
+        Returns:
+            dict[str, Mapping[str, object]]: Schema of validation rules defined in the project
+        """
+        return self.__schema
+
+    @property
+    def validator(self) -> RuleValidator:
+        """ The validator property
+
+        Returns:
+            RuleValidator: Validator object for rule evaluation
+        """
+        return self.__validator
 
     def __load_rules(self, rules_dir: str, forms: list[str]):
         """ Load the set of validation rules defined for the variables
@@ -54,9 +74,9 @@ class QualityCheck:
 
         if forms:
             parser = Parser(rules_dir)
-            self.schema, found_all = parser.load_schema_from_json(forms)
+            self.__schema, found_all = parser.load_schema_from_json(forms)
             if not found_all:
-                if self.strict:
+                if self.__strict:
                     raise QualityCheckException(
                         f'Missing validation rule definitions, please check {rules_dir} directory'
                     )
@@ -64,7 +84,7 @@ class QualityCheck:
                     logging.warning(
                         'Skipping validation rules for the form(s) listed above'
                     )
-        elif self.strict:
+        elif self.__strict:
             raise QualityCheckException(
                 'Failed to load validation rules, forms list is empty')
         else:
@@ -73,10 +93,11 @@ class QualityCheck:
             )
 
         try:
-            self.validator = RuleValidator(self.schema,
-                                           allow_unknown=not self.strict,
-                                           error_handler=CustomErrorHandler(
-                                               self.schema))
+            self.__validator = RuleValidator(self.__schema,
+                                             allow_unknown=not self.__strict,
+                                             error_handler=CustomErrorHandler(
+                                                 self.__schema))
+            self.validator.set_primary_key_field(self.__pk_field)
         except cerberus.schema.SchemaError as e:
             raise QualityCheckException(f'Schema Error - {e}')
 
@@ -94,9 +115,9 @@ class QualityCheck:
 
         # All the fields in the input record represented as string values,
         # cast the fields to appropriate data types according to the schema before validation
-        record = self.validator.cast_record(record)
+        record = self.__validator.cast_record(record)
         # Validate the record against the defined schema
-        passed = self.validator.validate(record, normalize=False)
-        errors = self.validator.errors
+        passed = self.__validator.validate(record, normalize=False)
+        errors = self.__validator.errors
 
         return passed, errors

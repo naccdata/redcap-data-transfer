@@ -10,8 +10,6 @@ from typing import Mapping, Tuple
 class Parser:
     """ Class to load the validation rules as python objects """
 
-    rules_dir = './rules/'
-
     def __init__(self, rules_dir: str):
         """
         
@@ -19,7 +17,7 @@ class Parser:
             rules_dir (str): Location where rule definitions are stored
         """
 
-        self.rules_dir = rules_dir
+        self.__rules_dir = rules_dir
 
     def load_schema_from_json(
             self,
@@ -40,7 +38,7 @@ class Parser:
         full_schema: dict[str, Mapping[str, object]] = {}
         found_all = True
         for form in forms:
-            form_def_file = self.rules_dir + form + '.json'
+            form_def_file = self.__rules_dir + form + '.json'
             try:
                 with open(form_def_file, 'r', encoding='utf-8') as file_object:
                     form_def = json.load(file_object)

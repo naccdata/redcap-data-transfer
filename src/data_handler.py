@@ -1,6 +1,7 @@
 """ DataHandler module """
 
 import html2text
+import io
 import json
 import logging
 import math
@@ -34,21 +35,21 @@ class DataHandler:
             qc_err_form (str, optional): Name of the REDCap form for reporting validation errors.
         """
 
-        self._src_project: REDCapConnection = src_prj
-        self._dest_project: REDCapConnection = dest_prj
-        self._qc_err_form = qc_err_form
+        self.__src_project: REDCapConnection = src_prj
+        self.__dest_project: REDCapConnection = dest_prj
+        self.__qc_err_form = qc_err_form
 
         # List of all form names in the source project with labels
-        self._all_forms: list[dict[str, str]] = src_prj.export_froms_list()
+        self.__all_forms: list[dict[str, str]] = src_prj.export_froms_list()
         # If forms not specified, all forms will be included
-        self._forms: list[str] = forms if forms else self.get_forms_list()
+        self.__forms: list[str] = forms if forms else self.get_forms_list()
         # If events not specified all events will be included
-        self._events: list[str] = events
+        self.__events: list[str] = events
         # Data dictionary for the data entry forms
         # this includes all metadata related to form fields
-        self._data_dict: pd.DataFrame = None
+        self.__data_dict: pd.DataFrame = None
         # Object to validate data quality rules
-        self._qual_check: QualityCheck = None
+        self.__qual_check: QualityCheck = None
 
     def get_forms_list(self) -> list[str]:
         """ Get the list of forms in the source project.
@@ -58,13 +59,13 @@ class DataHandler:
         """
 
         forms_list = []
-        if self._all_forms:
-            for form in self._all_forms:
+        if self.__all_forms:
+            for form in self.__all_forms:
                 forms_list.append(form[REDCapKeys.INST_NAME])
 
         # Exclude the validation error reporting form
-        if self._qc_err_form:
-            forms_list.remove(self._qc_err_form)
+        if self.__qc_err_form:
+            forms_list.remove(self.__qc_err_form)
 
         return forms_list
 
@@ -78,8 +79,13 @@ class DataHandler:
             str: Form name
         """
 
-        row = self._data_dict[self._data_dict[REDCapKeys.FLD_NAME] == var_name]
-        return row[REDCapKeys.FORM_NAME].values[0]
+        row = self.__data_dict[self.__data_dict[REDCapKeys.FLD_NAME] ==
+                               var_name]
+        if not row.empty:
+            return row[REDCapKeys.FORM_NAME].values[0]
+        else:
+            logging.warning('Cannot find form name for variable: %s', var_name)
+            return 'Form name Not Found'
 
     def get_field_label(self, var_name: str) -> str:
         """ Find the label for a given field.
@@ -91,8 +97,13 @@ class DataHandler:
             str: Field label
         """
 
-        row = self._data_dict[self._data_dict[REDCapKeys.FLD_NAME] == var_name]
-        return row[REDCapKeys.FLD_LBL].values[0]
+        row = self.__data_dict[self.__data_dict[REDCapKeys.FLD_NAME] ==
+                               var_name]
+        if not row.empty:
+            return row[REDCapKeys.FLD_LBL].values[0]
+        else:
+            logging.warning('Cannot find label for variable: %s', var_name)
+            return 'Label Not Found'
 
     def compare_project_settings(self) -> bool:
         """ Compare the source and destination project settings.
@@ -102,8 +113,8 @@ class DataHandler:
         """
 
         # Compare source and destination project data-dictionaries, cannot be empty
-        src_dict = self._src_project.export_data_dictionary(self._forms)
-        dest_dict = self._dest_project.export_data_dictionary(self._forms)
+        src_dict = self.__src_project.export_data_dictionary(self.__forms)
+        dest_dict = self.__dest_project.export_data_dictionary(self.__forms)
 
         if (not src_dict) or (not dest_dict) or (src_dict != dest_dict):
             logging.error(
@@ -112,11 +123,11 @@ class DataHandler:
             return False
 
         # Set data dictionary
-        self._data_dict = pd.read_json(src_dict)
+        self.__data_dict = pd.read_json(src_dict)
 
         # Compare source and destination project longitudinal settings
-        src_lng = self._src_project.is_longitudinal()
-        dest_lng = self._dest_project.is_longitudinal()
+        src_lng = self.__src_project.is_longitudinal()
+        dest_lng = self.__dest_project.is_longitudinal()
         if (src_lng and not dest_lng) or (dest_lng and not src_lng):
             logging.error(
                 'Source and destination project longitudinal settings do not match'
@@ -125,8 +136,8 @@ class DataHandler:
 
         if src_lng and dest_lng:
             # Compare source and destination project arms definitions
-            src_arms = self._src_project.export_arms()
-            dest_arms = self._dest_project.export_arms()
+            src_arms = self.__src_project.export_arms()
+            dest_arms = self.__dest_project.export_arms()
 
             if src_arms != dest_arms:
                 logging.error(
@@ -135,8 +146,8 @@ class DataHandler:
                 return False
 
             # Compare source and destination project event definitions
-            src_events = self._src_project.export_events()
-            dest_events = self._dest_project.export_events()
+            src_events = self.__src_project.export_events()
+            dest_events = self.__dest_project.export_events()
 
             if src_events != dest_events:
                 logging.error(
@@ -145,8 +156,8 @@ class DataHandler:
                 return False
 
             # Compare source and destination project form-event mappings
-            src_evnt_map = self._src_project.export_form_event_mappings()
-            dest_evnt_map = self._dest_project.export_form_event_mappings()
+            src_evnt_map = self.__src_project.export_form_event_mappings()
+            dest_evnt_map = self.__dest_project.export_form_event_mappings()
 
             if src_evnt_map != dest_evnt_map:
                 logging.error(
@@ -155,8 +166,8 @@ class DataHandler:
                 return False
 
         # Compare source and destination project repeating instrument settings
-        src_ins = self._src_project.has_repeating_instruments()
-        dest_ins = self._dest_project.has_repeating_instruments()
+        src_ins = self.__src_project.has_repeating_instruments()
+        dest_ins = self.__dest_project.has_repeating_instruments()
         if (src_ins and not dest_ins) or (dest_ins and not src_ins):
             logging.error(
                 'Source and destination project repeated instruments settings do not match'
@@ -164,8 +175,8 @@ class DataHandler:
             return False
 
         if src_ins and dest_ins:
-            src_rpt_ins = self._src_project.export_repeating_instruments()
-            dest_rpt_ins = self._dest_project.export_repeating_instruments()
+            src_rpt_ins = self.__src_project.export_repeating_instruments()
+            dest_rpt_ins = self.__dest_project.export_repeating_instruments()
 
             if src_rpt_ins != dest_rpt_ins:
                 logging.error(
@@ -187,12 +198,33 @@ class DataHandler:
         """
 
         try:
-            self._qual_check = QualityCheck(self._src_project.primary_key,
-                                            rules_dir, self._forms, strict)
-            return True
+            self.__qual_check = QualityCheck(self.__src_project.primary_key,
+                                             rules_dir, self.__forms, strict)
+            if self.__src_project.is_longitudinal():
+                self.__qual_check.validator.set_data_handler(self)
+
+            return self.validate_variable_names()
         except QualityCheckException as e:
             logging.critical(e)
             return False
+
+    def validate_variable_names(self) -> bool:
+        """ Validate the variable names given in the rule definitions against the REDCap data dictionary
+
+        Returns:
+            bool: False if varibale(s) not found in the dictionary, else True
+        """
+
+        found = True
+        schema = self.__qual_check.schema
+        variables = self.__data_dict[REDCapKeys.FLD_NAME].unique()
+        for key in schema:
+            if key not in variables:
+                found = False
+                logging.error('Invalid variable name "%s" in rule definitions',
+                              key)
+
+        return found
 
     def transfer_data(self, batch_size_val: int, move_records: bool = True):
         """ Move/copy records from source project to destination project.
@@ -202,10 +234,11 @@ class DataHandler:
             move_records (bool, optional): Move records to destination and delete from source. Defaults to True.
         """
 
-        if not self._src_project.export_record_ids(self._forms, self._events):
+        if not self.__src_project.export_record_ids(self.__forms,
+                                                    self.__events):
             return
 
-        num_records = len(self._src_project.record_ids)
+        num_records = len(self.__src_project.record_ids)
 
         if num_records <= 0:
             logging.warning(
@@ -239,26 +272,25 @@ class DataHandler:
                 # no need to specify record ids
                 record_ids = None
             else:
-                record_ids = self._src_project.record_ids[begin:end]
+                record_ids = self.__src_project.record_ids[begin:end]
 
             # Export a batch of records from the source project
-            records = self._src_project.export_records('json', record_ids,
-                                                       self._forms,
-                                                       self._events)
-            if records:
-                # Validate the records
-                valid_ids, valid_records, failed_records = self.validate_data(
-                    records)
+            records = self.__src_project.export_records(
+                'json', record_ids, self.__forms, self.__events)
+            if not records:
+                logging.warning('No records returned for the export request')
+                logging.info('Requested record IDs: %s', record_ids)
+                i += 1
+                continue
 
-                if len(valid_records) == 0:
-                    logging.info('There are no valid records in batch %s ',
-                                 i + 1)
-                    i += 1
-                    continue
+            # Validate the records
+            valid_ids, valid_records, failed_records = self.validate_data(
+                records)
 
+            if len(valid_records) > 0:
                 # Import the valid records to destination project
                 import_json_str = json.dumps(valid_records)
-                num_imported = self._dest_project.import_records(
+                num_imported = self.__dest_project.import_records(
                     import_json_str, 'json')
                 if num_imported:
                     logging.info(
@@ -278,15 +310,17 @@ class DataHandler:
                         logging.info(
                             'Number of records deleted from the source project: %s',
                             num_deleted)
+            else:
+                logging.info('There are no valid records in batch %s ', i + 1)
 
-                # Import back the failed records to the source project with validation errors
-                if len(failed_records) != 0:
-                    errors_json_str = json.dumps(failed_records)
-                    if not self._src_project.import_records(
-                            errors_json_str, 'json'):
-                        logging.warning(
-                            'Failed to write validation errors to the source project'
-                        )
+            # Import back the failed records to the source project with validation errors
+            if len(failed_records) != 0:
+                errors_json_str = json.dumps(failed_records)
+                if not self.__src_project.import_records(
+                        errors_json_str, 'json'):
+                    logging.warning(
+                        'Failed to write validation errors to the source project'
+                    )
 
             i += 1
 
@@ -319,8 +353,8 @@ class DataHandler:
         logging.info('Number of input instances: %s', len(records_list))
         # Check each record against the defined rules
         for record in records_list:
-            record_id = record[self._src_project.primary_key]
-            valid, dict_erros = self._qual_check.check_record_cerberus(record)
+            record_id = record[self.__src_project.primary_key]
+            valid, dict_erros = self.__qual_check.check_record_cerberus(record)
             if valid:
                 valid_records.append(record)
                 valid_ids.add(record_id)
@@ -344,7 +378,7 @@ class DataHandler:
             errors (dict[str, list[str]]): Error list for each variable
             failed_records (list[dict[str, str]]): Failed records list, to append the generated error report
         """
-        src_rdcp = self._src_project
+        src_rdcp = self.__src_project
         record_id = record[src_rdcp.primary_key]
         err_header = f'Validation failed for the record {src_rdcp.primary_key} = {record_id}'
 
@@ -369,7 +403,7 @@ class DataHandler:
             error_str += 'Current value: ' + str(record[key]) + ' | '
             error_str += 'Errors: ' + str(errors[key]) + '\n'
 
-        if self._qc_err_form:
+        if self.__qc_err_form:
             failed_rec['timestamp'] = (dt.now()).strftime('%m-%d-%y %H:%M:%S')
             failed_rec['val_errs'] = error_str
 
@@ -388,8 +422,8 @@ class DataHandler:
             int | bool: Number of records deleted or False if an error occured
         """
 
-        is_subset = (len(self._forms) <
-                     (len(self._all_forms) - 1)) or self._events
+        is_subset = (len(self.__forms) <
+                     (len(self.__all_forms) - 1)) or self.__events
 
         if is_subset:
             logging.warning(
@@ -397,4 +431,44 @@ class DataHandler:
             )
             return False
         else:
-            return self._src_project.delete_records(record_ids)
+            return self.__src_project.delete_records(record_ids)
+
+    def get_previous_instance(
+            self, orderby: str,
+            current_ins: dict[str, str]) -> dict[str, str] | bool:
+        """ Return the previous instance of the specified record
+
+        Args:
+            orderby (str): Variable name that instances are sorted by
+            current_ins (dict[str, str]): Instance currently being validated
+
+        Returns:
+            dict[str, str]: Previous instance or False if no instance found
+        """
+
+        # Skip the checks if this is first visit
+        if not current_ins[REDCapKeys.RDCP_RPT_INSTN]:
+            return False
+
+        record_id = current_ins[self.__src_project.primary_key]
+        curr_ob_fld_val = current_ins[orderby]
+        filter_str = f"[{orderby}] < '{curr_ob_fld_val}'"
+        #logging.info(filter)
+        prev_records = self.__dest_project.export_records('csv', [record_id],
+                                                          self.__forms,
+                                                          self.__events,
+                                                          filters=filter_str)
+        #prev_records = self._dest_project.export_records('csv', [record_id], self._forms, self._events)
+        if prev_records:
+            #logging.info(prev_records)
+            # Read the response into a pandas data frame
+            df = pd.read_csv(io.StringIO(prev_records), keep_default_na=False)
+            df = df.sort_values(orderby, ascending=False)
+            latest_rec = df.head(1)
+            #logging.info("SORTED")
+            #logging.info(df[[self._src_project.primary_key, "redcap_repeat_instance", orderby]])
+            return latest_rec.to_dict('records')[0]
+        else:
+            logging.info('No previous records found for %s=%s and %s',
+                         self.__src_project.primary_key, record_id, filter_str)
+            return False

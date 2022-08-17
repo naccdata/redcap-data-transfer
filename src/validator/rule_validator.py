@@ -1,6 +1,7 @@
 """ Module for defining validation rules """
 
 from typing import Mapping
+
 from cerberus.errors import BasicErrorHandler, ValidationError, ErrorTree
 from cerberus.validator import Validator
 
@@ -13,6 +14,16 @@ class SchemaDefs:
     THEN = 'then'
     META = 'meta'
     ERRMSG = 'errmsg'
+    ORDERBY = 'orderby'
+    CONSTRAINTS = 'constraints'
+    CURRENT = 'current'
+    PREVIOUS = 'previous'
+
+
+class ValidationException(Exception):
+    """ Raised when an system error occurs during validation """
+
+    pass
 
 
 class CustomErrorHandler(BasicErrorHandler):
@@ -27,7 +38,7 @@ class CustomErrorHandler(BasicErrorHandler):
         """
 
         super().__init__()
-        self.custom_schema = schema
+        self._custom_schema = schema
 
     def _format_message(self, field: str, error: ValidationError):
         """ Display custom error message.
@@ -40,9 +51,9 @@ class CustomErrorHandler(BasicErrorHandler):
 
         """
 
-        if self.custom_schema:
-            error_msg = self.custom_schema[field].get(SchemaDefs.META, {}).get(
-                SchemaDefs.ERRMSG, '')
+        if self._custom_schema:
+            error_msg = self._custom_schema[field].get(
+                SchemaDefs.META, {}).get(SchemaDefs.ERRMSG, '')
             if error_msg:
                 return field + ': ' + error_msg
 
@@ -56,11 +67,28 @@ class RuleValidator(Validator):
         """
 
         Args:
+            data_handler (DataHandler): DataHandler instance
             schema (Mapping): Validation schema as dict[field, rule objects]
         """
 
         super().__init__(schema, *args, **kwargs)
-        self._dtypes: dict[str, str] = self.__populate_data_types()
+
+        # Data type map for each field
+        self.__dtypes: dict[str, str] = self.__populate_data_types()
+
+        # DataHandler instance, will be set later for longitudinal projects
+        self.__data_handler = None
+
+        # Primary key field of the project, will be set later for longitudinal projects
+        self.__pk_field: str = None
+
+        # Cache of previous records that has been retrieved
+        self.__prev_records: dict[str, Mapping] = {}
+
+    @property
+    def dtypes(self):
+        """ The dtype property """
+        return self.__dtypes
 
     def __populate_data_types(self) -> dict[str, str] | None:
         """ Convert cerberus data types to python data types.
@@ -92,10 +120,26 @@ class RuleValidator(Validator):
 
         return data_types
 
-    @property
-    def dtypes(self):
-        """ The dtype property """
-        return self._dtypes
+    def set_data_handler(self, dh):
+        """ Set the data_handler instance
+
+        Args:
+            dh (DataHandler): DataHandler instance to retrieve longitudinal data
+        """
+        # Note - added the import here to avoid cyclic reference error
+        # TODO - check whether there is a better way of using the DataHandler class
+        from data_handler import DataHandler
+
+        self.__data_handler: DataHandler = dh
+
+    def set_primary_key_field(self, pk_field: str):
+        """ Set the pk_field attribute
+
+        Args:
+            pk_field (str): Primary key field of the project
+        """
+
+        self.__pk_field: str = pk_field
 
     def cast_record(self, record: dict[str, str]) -> dict[str, object]:
         """ Cast the fields in the record to appropriate data types.
@@ -107,7 +151,7 @@ class RuleValidator(Validator):
             dict[str, object]: Casted record dict[field, value]
         """
 
-        if not self._dtypes:
+        if not self.__dtypes:
             return record
 
         for key, value in record.items():
@@ -115,17 +159,17 @@ class RuleValidator(Validator):
             # otherwise data type validation is triggered.
             # Don't remove empty fields from the record, if removed, any
             # validation rules defined for that field will not be triggered.
-            if not value:
+            if value == '':
                 record[key] = None
                 continue
 
             try:
-                if key in self._dtypes:
-                    if self._dtypes[key] == 'int':
+                if key in self.__dtypes:
+                    if self.__dtypes[key] == 'int':
                         record[key] = int(value)
-                    elif self._dtypes[key] == 'float':
+                    elif self.__dtypes[key] == 'float':
                         record[key] = float(value)
-                    elif self._dtypes[key] == 'bool':
+                    elif self.__dtypes[key] == 'bool':
                         record[key] = bool(value)
             except ValueError:
                 record[key] = value
@@ -151,16 +195,16 @@ class RuleValidator(Validator):
         elif filled and not value:
             self._error(field, 'cannot be empty')
 
-    def _validate_constraints(self, constraints: list[Mapping], field: str,
-                              value: object):
-        """ Validate the list of constraints specified for a field.
+    def _validate_compatibility(self, constraints: list[Mapping], field: str,
+                                value: object):
+        """ Validate the list of compatibility checks specified for a field.
                         
         Args:
             constraints (list[Mapping]): List of constraints specified for the variable
             field (str): Variable name
             value (object): Variable value
 
-            Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
+        Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
             The rule's arguments are validated against this schema:
                 {'type': 'list',
                  'schema': {'type': 'dict', 
@@ -201,3 +245,78 @@ class RuleValidator(Validator):
                 errors = temp_validator.errors.items()
                 for error in errors:
                     self._error(field, f'{str(error)} for {dependent_conds}')
+
+    def _validate_temporalrules(self, temporalrules: dict[Mapping], field: str,
+                                value: object):
+        """ Validate the list of longitudial checks specified for a field.
+                        
+        Args:
+            temporalrules (dict[Mapping]): Longitudial checks definitions the variable
+            field (str): Variable name
+            value (object): Variable value
+        
+         Raises:
+            ValidationException: If DataHandler or primary key not set
+        
+        Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
+        The rule's arguments are validated against this schema:
+            {'type': 'dict',
+             'schema': {'orderby': {'type': 'string', 'required': True, 'empty': False},
+                        'constraints': {'type': 'list', 
+                                        'schema': {'type': 'dict',
+                                                    'schema': {'previous': {'type': 'dict', 'required': True, 'empty': False},
+                                                                'current': {'type': 'dict', 'required': True, 'empty': False}
+                                                            }
+                                                }
+                                        }
+                        }
+            }
+        """
+        if not self.__data_handler:
+            raise ValidationException(
+                'DataHandler not set, use set_data_handler() method')
+
+        if not self.__pk_field:
+            raise ValidationException(
+                'Primary key field not set, use set_primary_key_field() method'
+            )
+
+        record_id = self.document[self.__pk_field]
+        # If the previous record was already retrieved, use it
+        if record_id in self.__prev_records:
+            prev_ins = self.__prev_records[record_id]
+        else:
+            orderby = temporalrules[SchemaDefs.ORDERBY]
+            prev_ins = self.__data_handler.get_previous_instance(
+                orderby, self.document)
+
+        if prev_ins:
+            #logging.info(prev_ins)
+            #logging.info(self.document)
+            prev_ins = self.cast_record(prev_ins)
+            self.__prev_records[record_id] = prev_ins
+            #logging.info(prev_ins)
+            constraints = temporalrules[SchemaDefs.CONSTRAINTS]
+            for constraint in constraints:
+                prev_conds = constraint[SchemaDefs.PREVIOUS]
+                prev_schema = {field: prev_conds}
+                #logging.info(prev_schema)
+                curr_conds = constraint[SchemaDefs.CURRENT]
+                curr_schema = {field: curr_conds}
+                #logging.info(curr_schema)
+
+                prev_validator = RuleValidator(
+                    prev_schema,
+                    allow_unknown=True,
+                    error_handler=CustomErrorHandler(prev_schema))
+                if prev_validator.validate(prev_ins):
+                    temp_validator = RuleValidator(
+                        curr_schema,
+                        error_handler=CustomErrorHandler(curr_schema))
+                    temp_validator.validate({field: value})
+                    errors = temp_validator.errors.items()
+                    for error in errors:
+                        self._error(
+                            field,
+                            f'{str(error)} in current visit for {prev_conds} in previous visit'
+                        )
