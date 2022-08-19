@@ -7,7 +7,7 @@ from datetime import datetime as dt
 
 from data_handler import DataHandler
 from params import Params
-from redcap_connection import REDCapConnection, REDCapConnectionException
+from redcap_api.redcap_connection import REDCapConnection, REDCapConnectionException
 
 
 def main():

@@ -1,7 +1,6 @@
 """ DataHandler module """
 
 import html2text
-import io
 import json
 import logging
 import math
@@ -10,12 +9,13 @@ import pandas as pd
 from datetime import datetime as dt
 from typing import Tuple
 
-from redcap_connection import REDCapConnection, REDCapKeys
+from redcap_datastore import REDCapDatastore
+from redcap_api.redcap_connection import REDCapConnection, REDCapKeys
 from validator.quality_check import QualityCheck, QualityCheckException
 
 
 class DataHandler:
-    """ Class to read the data from a source REDCap project
+    """ Class to read the data from a source REDCap project, validate, 
         and write to a destination REDCap project
     """
 
@@ -206,7 +206,9 @@ class DataHandler:
                                              rules_dir, rules_type,
                                              self.__forms, strict)
             if self.__src_project.is_longitudinal():
-                self.__qual_check.validator.set_data_handler(self)
+                redcap_ds = REDCapDatastore(self.__dest_project, self.__forms,
+                                            self.__events)
+                self.__qual_check.validator.set_datastore(redcap_ds)
 
             return self.validate_variable_names()
         except QualityCheckException as e:
@@ -437,43 +439,3 @@ class DataHandler:
             return False
         else:
             return self.__src_project.delete_records(record_ids)
-
-    def get_previous_instance(
-            self, orderby: str,
-            current_ins: dict[str, str]) -> dict[str, str] | bool:
-        """ Return the previous instance of the specified record
-
-        Args:
-            orderby (str): Variable name that instances are sorted by
-            current_ins (dict[str, str]): Instance currently being validated
-
-        Returns:
-            dict[str, str]: Previous instance or False if no instance found
-        """
-
-        # Skip the checks if this is first visit
-        if not current_ins[REDCapKeys.RDCP_RPT_INSTN]:
-            return False
-
-        record_id = current_ins[self.__src_project.primary_key]
-        curr_ob_fld_val = current_ins[orderby]
-        filter_str = f"[{orderby}] < '{curr_ob_fld_val}'"
-        #logging.info(filter)
-        prev_records = self.__dest_project.export_records('csv', [record_id],
-                                                          self.__forms,
-                                                          self.__events,
-                                                          filters=filter_str)
-        #prev_records = self._dest_project.export_records('csv', [record_id], self._forms, self._events)
-        if prev_records:
-            #logging.info(prev_records)
-            # Read the response into a pandas data frame
-            df = pd.read_csv(io.StringIO(prev_records), keep_default_na=False)
-            df = df.sort_values(orderby, ascending=False)
-            latest_rec = df.head(1)
-            #logging.info("SORTED")
-            #logging.info(df[[self._src_project.primary_key, "redcap_repeat_instance", orderby]])
-            return latest_rec.to_dict('records')[0]
-        else:
-            logging.info('No previous records found for %s=%s and %s',
-                         self.__src_project.primary_key, record_id, filter_str)
-            return False

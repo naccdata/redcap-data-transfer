@@ -4,6 +4,7 @@ from typing import Mapping
 
 from cerberus.errors import BasicErrorHandler, ValidationError, ErrorTree
 from cerberus.validator import Validator
+from validator.datastore import Datastore
 
 
 class SchemaDefs:
@@ -67,7 +68,6 @@ class RuleValidator(Validator):
         """
 
         Args:
-            data_handler (DataHandler): DataHandler instance
             schema (Mapping): Validation schema as dict[field, rule objects]
         """
 
@@ -76,10 +76,12 @@ class RuleValidator(Validator):
         # Data type map for each field
         self.__dtypes: dict[str, str] = self.__populate_data_types()
 
-        # DataHandler instance, will be set later for longitudinal projects
-        self.__data_handler = None
+        # Datastore instance, will be set later for longitudinal projects
+        # Not passing this as an attribute to init method as it causes errors inside cerberus code
+        self.__datastore: Datastore = None
 
         # Primary key field of the project, will be set later for longitudinal projects
+        # Not passing this as an attribute to init method as it causes errors inside cerberus code
         self.__pk_field: str = None
 
         # Cache of previous records that has been retrieved
@@ -120,17 +122,14 @@ class RuleValidator(Validator):
 
         return data_types
 
-    def set_data_handler(self, dh):
-        """ Set the data_handler instance
+    def set_datastore(self, datastore: Datastore):
+        """ Set the Datastore instance
 
         Args:
-            dh (DataHandler): DataHandler instance to retrieve longitudinal data
+            datastore (Datastore): Datastore instance to retrieve longitudinal data
         """
-        # Note - added the import here to avoid cyclic reference error
-        # TODO - check whether there is a better way of using the DataHandler class
-        from data_handler import DataHandler
 
-        self.__data_handler: DataHandler = dh
+        self.__datastore: Datastore = datastore
 
     def set_primary_key_field(self, pk_field: str):
         """ Set the pk_field attribute
@@ -140,6 +139,11 @@ class RuleValidator(Validator):
         """
 
         self.__pk_field: str = pk_field
+
+    def reset_record_cache(self):
+        """ Clear the previous records cache """
+
+        self.__prev_records.clear()
 
     def cast_record(self, record: dict[str, str]) -> dict[str, object]:
         """ Cast the fields in the record to appropriate data types.
@@ -272,9 +276,9 @@ class RuleValidator(Validator):
                         }
             }
         """
-        if not self.__data_handler:
+        if not self.__datastore:
             raise ValidationException(
-                'DataHandler not set, use set_data_handler() method')
+                'Datastore not set, use set_datastore() method')
 
         if not self.__pk_field:
             raise ValidationException(
@@ -282,17 +286,21 @@ class RuleValidator(Validator):
             )
 
         record_id = self.document[self.__pk_field]
+
         # If the previous record was already retrieved, use it
         if record_id in self.__prev_records:
             prev_ins = self.__prev_records[record_id]
         else:
             orderby = temporalrules[SchemaDefs.ORDERBY]
-            prev_ins = self.__data_handler.get_previous_instance(
+            prev_ins = self.__datastore.get_previous_instance(
                 orderby, self.document)
 
-        if prev_ins:
-            prev_ins = self.cast_record(prev_ins)
+            if prev_ins:
+                prev_ins = self.cast_record(prev_ins)
+
             self.__prev_records[record_id] = prev_ins
+
+        if prev_ins:
             constraints = temporalrules[SchemaDefs.CONSTRAINTS]
             for constraint in constraints:
                 prev_conds = constraint[SchemaDefs.PREVIOUS]
