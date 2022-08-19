@@ -21,6 +21,7 @@ class QualityCheck:
     def __init__(self,
                  pk_field: str,
                  rules_dir: str,
+                 rules_type: str,
                  forms: list[str],
                  strict: bool = True):
         """
@@ -28,6 +29,7 @@ class QualityCheck:
         Args:
             pk_field (str): Primary key field of the project
             rules_dir (str): Location where rule definitions are stored
+            rules_type (str): Rule definitions type - yaml or json
             forms (list[str]): List of form names to load the rule definitions
             strict (bool, optional): Validation mode. Defaults to True. 
                                      If False, unknown forms/fields are skipped from validation
@@ -40,7 +42,7 @@ class QualityCheck:
         # Validator object for rule evaluation
         self.__validator: RuleValidator = None
 
-        self.__load_rules(rules_dir, forms)
+        self.__load_rules(rules_dir, rules_type, forms)
 
     @property
     def schema(self) -> dict[str, Mapping[str, object]]:
@@ -60,11 +62,12 @@ class QualityCheck:
         """
         return self.__validator
 
-    def __load_rules(self, rules_dir: str, forms: list[str]):
+    def __load_rules(self, rules_dir: str, rules_type: str, forms: list[str]):
         """ Load the set of validation rules defined for the variables
 
         Args:
             rules_dir (str): Location where rule definitions are stored
+            rules_type (str): Rule definitions type - yaml or json
             forms (list[str]): List of form names to load the rule definitions
 
         Raises:
@@ -73,8 +76,8 @@ class QualityCheck:
         """
 
         if forms:
-            parser = Parser(rules_dir)
-            self.__schema, found_all = parser.load_schema_from_json(forms)
+            parser = Parser(rules_dir, rules_type)
+            self.__schema, found_all = parser.load_validation_schema(forms)
             if not found_all:
                 if self.__strict:
                     raise QualityCheckException(

@@ -186,11 +186,15 @@ class DataHandler:
 
         return True
 
-    def set_quality_checker(self, rules_dir: str, strict: bool = True) -> bool:
+    def set_quality_checker(self,
+                            rules_dir: str,
+                            rules_type: str,
+                            strict: bool = True) -> bool:
         """ Set up QualityCheck instance to run data validation rules.
 
         Args:
             rules_dir (str): Location where rule definitions are stored
+            rules_type (str): Rule definitions type - yaml or json
             strict (bool, optional): Validation mode. Defaults to True
 
         Returns:
@@ -199,7 +203,8 @@ class DataHandler:
 
         try:
             self.__qual_check = QualityCheck(self.__src_project.primary_key,
-                                             rules_dir, self.__forms, strict)
+                                             rules_dir, rules_type,
+                                             self.__forms, strict)
             if self.__src_project.is_longitudinal():
                 self.__qual_check.validator.set_data_handler(self)
 

@@ -22,6 +22,7 @@ class Params:
     LOG_FILE_DIR: str = './logs/'
     LOG_FILE_PREFIX: str = 'validation-errors-'
     RULES_DIR: str = './rules/'
+    RULE_DEFS_TYPE: str = 'yaml'
     STRICT_MODE: bool = True
 
     # Optional parameters
@@ -53,6 +54,8 @@ class Params:
             cls.LOG_FILE_PREFIX = decouple.config('LOG_FILE_PREFIX',
                                                   default='validation-errors-')
             cls.RULES_DIR = decouple.config('RULES_DIR', default='./rules/')
+            cls.RULE_DEFS_TYPE = decouple.config('RULE_DEFS_TYPE',
+                                                 default='yaml')
             cls.STRICT_MODE = decouple.config('STRICT_MODE',
                                               default=True,
                                               cast=bool)
