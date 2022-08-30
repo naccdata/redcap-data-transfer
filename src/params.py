@@ -15,13 +15,13 @@ class Params:
     DEST_API_TOKEN: str = ''
     SRC_API_URL: str = ''
     DEST_API_URL: str = ''
+    RULES_DIR: str = ''
 
     # Parameters with default values
     BATCH_SIZE: int = 100
     MOVE_RECORDS: bool = True
     LOG_FILE_DIR: str = './logs/'
-    LOG_FILE_PREFIX: str = 'validation-errors-'
-    RULES_DIR: str = './rules/'
+    LOG_FILE_PREFIX: str = 'redcap-transfer-'
     RULE_DEFS_TYPE: str = 'yaml'
     STRICT_MODE: bool = True
 
@@ -43,6 +43,7 @@ class Params:
             cls.DEST_API_TOKEN = decouple.config('DEST_API_TOKEN')
             cls.SRC_API_URL = decouple.config('SRC_API_URL')
             cls.DEST_API_URL = decouple.config('DEST_API_URL')
+            cls.RULES_DIR = decouple.config('RULES_DIR')
             cls.BATCH_SIZE = decouple.config('BATCH_SIZE',
                                              default=100,
                                              cast=int)
@@ -52,8 +53,7 @@ class Params:
             cls.LOG_FILE_DIR = decouple.config('LOG_FILE_DIR',
                                                default='./logs/')
             cls.LOG_FILE_PREFIX = decouple.config('LOG_FILE_PREFIX',
-                                                  default='validation-errors-')
-            cls.RULES_DIR = decouple.config('RULES_DIR', default='./rules/')
+                                                  default='redcap-transfer-')
             cls.RULE_DEFS_TYPE = decouple.config('RULE_DEFS_TYPE',
                                                  default='yaml')
             cls.STRICT_MODE = decouple.config('STRICT_MODE',

@@ -4,6 +4,7 @@ import html2text
 import json
 import logging
 import math
+import os
 import pandas as pd
 
 from datetime import datetime as dt
@@ -200,6 +201,12 @@ class DataHandler:
         Returns:
             bool: False if QualityCheckException occurs, else True
         """
+
+        if not os.path.isdir(rules_dir):
+            logging.critical(
+                'Invalid path for rules directory - %s - does not exist',
+                rules_dir)
+            return False
 
         try:
             self.__qual_check = QualityCheck(self.__src_project.primary_key,

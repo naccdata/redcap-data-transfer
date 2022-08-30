@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import os
 
 from datetime import datetime as dt
 
@@ -86,6 +87,10 @@ def setup_logfile():
     """ Add a file handler to the root logger """
 
     current_time = dt.now()
+
+    if not os.path.isdir(Params.LOG_FILE_DIR):
+        os.makedirs(Params.LOG_FILE_DIR, 0o744, True)
+
     log_file = Params.LOG_FILE_DIR + Params.LOG_FILE_PREFIX
     log_file += current_time.strftime('%m%d%y-%H%M%S') + '.log'
 
