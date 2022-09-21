@@ -1,6 +1,6 @@
 # redcap-data-transfer
 
-This module retrieves form data from a source REDCap project, validates the records arrocrding to data quality rules, and writes the records which pass the validation to a destination REDCap project.
+This module retrieves form data from a source REDCap project, validates the records according to data quality rules, and writes the records which pass the validation to a destination REDCap project.
 
 **Usage:** python3 redcap_transfer.py
 

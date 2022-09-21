@@ -86,7 +86,7 @@ class DataHandler:
             return row[REDCapKeys.FORM_NAME].values[0]
         else:
             logging.warning('Cannot find form name for variable: %s', var_name)
-            return 'Form name Not Found'
+            return None
 
     def get_field_label(self, var_name: str) -> str:
         """ Find the label for a given field.
@@ -104,7 +104,7 @@ class DataHandler:
             return row[REDCapKeys.FLD_LBL].values[0]
         else:
             logging.warning('Cannot find label for variable: %s', var_name)
-            return 'Label Not Found'
+            return None
 
     def compare_project_settings(self) -> bool:
         """ Compare the source and destination project settings.
@@ -226,7 +226,7 @@ class DataHandler:
         """ Validate the variable names given in the rule definitions against the REDCap data dictionary
 
         Returns:
-            bool: False if varibale(s) not found in the dictionary, else True
+            bool: False if variable(s) not found in the dictionary, else True
         """
 
         found = True
