@@ -1,3 +1,6 @@
 requests
 pandas
 python-decouple
+cerberus
+html2text
+pyyaml

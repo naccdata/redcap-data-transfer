@@ -5,6 +5,9 @@ FROM python:${VARIANT}
 # set the working directory in the container
 WORKDIR /redcap_transfer
 
+# set PYTHONPATH 
+ENV PYTHONPATH "/redcap_transfer/src/:${PYTHONPATH}"
+
 # copy the requirements file and install dependencies
 COPY requirements.txt /tmp/
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt

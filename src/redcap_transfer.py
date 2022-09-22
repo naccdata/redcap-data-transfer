@@ -2,12 +2,13 @@
 
 import logging
 import sys
+import os
 
 from datetime import datetime as dt
 
 from data_handler import DataHandler
 from params import Params
-from redcap_connection import REDCapConnection, REDCapConnectionException
+from redcap_api.redcap_connection import REDCapConnection, REDCapConnectionException
 
 
 def main():
@@ -67,8 +68,8 @@ def main():
     logging.info('Comparing source and destination project compatibility...')
     if data_handler.compare_project_settings():
         # Create QualityChecker instance to validate data
-        if not data_handler.set_quality_checker(Params.RULES_DIR,
-                                                Params.STRICT_MODE):
+        if not data_handler.set_quality_checker(
+                Params.RULES_DIR, Params.RULE_DEFS_TYPE, Params.STRICT_MODE):
             sys.exit(1)
 
         # Move/copy the records from source project to destination project
@@ -86,6 +87,10 @@ def setup_logfile():
     """ Add a file handler to the root logger """
 
     current_time = dt.now()
+
+    if not os.path.isdir(Params.LOG_FILE_DIR):
+        os.makedirs(Params.LOG_FILE_DIR, 0o744, True)
+
     log_file = Params.LOG_FILE_DIR + Params.LOG_FILE_PREFIX
     log_file += current_time.strftime('%m%d%y-%H%M%S') + '.log'
 
