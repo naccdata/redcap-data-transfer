@@ -26,6 +26,8 @@ class REDCapKeys:
     FORM_NAME = 'form_name'
     FLD_NAME = 'field_name'
     FLD_LBL = 'field_label'
+    FLD_TYPE = 'field_type'
+    FLD_CHOICES = 'select_choices_or_calculations'
 
 
 class REDCapConnection:

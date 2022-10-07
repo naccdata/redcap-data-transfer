@@ -194,9 +194,9 @@ class RuleValidator(Validator):
                 {'type': 'boolean'}
         """
 
-        if not filled and value:
+        if not filled and value is not None:
             self._error(field, 'must be empty')
-        elif filled and not value:
+        elif filled and value is None:
             self._error(field, 'cannot be empty')
 
     def _validate_compatibility(self, constraints: list[Mapping], field: str,
