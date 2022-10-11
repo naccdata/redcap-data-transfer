@@ -118,9 +118,9 @@ class QualityCheck:
 
         # All the fields in the input record represented as string values,
         # cast the fields to appropriate data types according to the schema before validation
-        record = self.__validator.cast_record(record)
+        cst_record = self.__validator.cast_record(record.copy())
         # Validate the record against the defined schema
-        passed = self.__validator.validate(record, normalize=False)
+        passed = self.__validator.validate(cst_record, normalize=False)
         errors = self.__validator.errors
 
         return passed, errors
