@@ -16,7 +16,7 @@ from validator.quality_check import QualityCheck, QualityCheckException
 
 
 class DataHandler:
-    """ Class to read the data from a source REDCap project, validate, 
+    """ Class to read the data from a source REDCap project, validate,
         and write to a destination REDCap project
     """
 
@@ -373,7 +373,7 @@ class DataHandler:
 
         Returns:
             list[str]: List of valid record IDs,
-            list[dict[str, str]]: List of valid records, 
+            list[dict[str, str]]: List of valid records,
             list[dict[str, str]]: List of failed records with error messages
         """
 
@@ -402,7 +402,7 @@ class DataHandler:
     def compose_error_report_for_record(self, record: dict[str, str],
                                         errors: dict[str, list[str]],
                                         failed_records: list[dict[str, str]]):
-        """ Create an object to report the validation errors, 
+        """ Create an object to report the validation errors,
             these will be imported to REDCap project in JSON format
 
         Args:

@@ -1,19 +1,24 @@
 """ Module for defining validation rules """
-from datetime import datetime as dt
 import logging
+
+from datetime import datetime as dt
 from typing import Mapping
 
 from cerberus.errors import BasicErrorHandler, ValidationError, ErrorTree
 from cerberus.validator import Validator
+
 from validator.datastore import Datastore
+from validator.json_logic import jsonLogic
 
 
 class SchemaDefs:
     """ Class to store schema attribute labels and default values """
 
     TYPE = 'type'
+    OP = 'op'
     IF = 'if'
     THEN = 'then'
+    ELSE = 'else'
     META = 'meta'
     ERRMSG = 'errmsg'
     ORDERBY = 'orderby'
@@ -22,6 +27,7 @@ class SchemaDefs:
     PREVIOUS = 'previous'
     CRR_DATE = 'current_date'
     CRR_YEAR = 'current_year'
+    FORMULA = 'formula'
 
 
 class ValidationException(Exception):
@@ -191,7 +197,7 @@ class RuleValidator(Validator):
 
     def _validate_max(self, max_value: object, field: str, value: object):
         """ Override max rule to support validations wrt current date/year
-                   
+                           
         Args:
             max_value (object): Maximum value specified in the schema def
             field (str): Variable name
@@ -281,7 +287,7 @@ class RuleValidator(Validator):
     def _validate_compatibility(self, constraints: list[Mapping], field: str,
                                 value: object):
         """ Validate the list of compatibility checks specified for a field.
-                        
+
         Args:
             constraints (list[Mapping]): List of constraints specified for the variable
             field (str): Variable name
@@ -290,9 +296,12 @@ class RuleValidator(Validator):
         Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
             The rule's arguments are validated against this schema:
                 {'type': 'list',
-                 'schema': {'type': 'dict', 
-                            'schema':{'if': {'type': 'dict', 'required': True, 'empty': False},
-                                      'then': {'type': 'dict', 'required': True, 'empty': False}
+                 'schema': {'type': 'dict',
+                            'schema':{'op': {'type': 'string', 'required': False, 'allowed': ['AND', 'OR']},
+                                      'if': {'type': 'dict', 'required': True, 'empty': False},
+                                      'then': {'type': 'dict', 'required': True, 'empty': False},
+                                      'else': {'type': 'dict', 'required': False, 'empty': False},
+                                      'errmsg': {'type': 'string', 'required': False, 'empty': False}
                                       }
                             }
                 }
@@ -301,51 +310,74 @@ class RuleValidator(Validator):
         # Evaluate each constraint in the list individually,
         # validation fails if any of the constraints fails.
         for constraint in constraints:
-            # Extract conditions for dependent fields
+            # Extract operator if specified, default is AND
+            operator = constraint.get(SchemaDefs.OP, 'AND')
+
+            # Extract conditions for if clause
             dependent_conds = constraint[SchemaDefs.IF]
 
-            # Extract conditions for self (i.e. field being evaluated)
-            self_conds = constraint[SchemaDefs.THEN]
+            # Extract conditions for then clause
+            then_conds = constraint[SchemaDefs.THEN]
 
-            valid = True
-            # Check whether all dependency conditions are valid (evaluated as logical AND operation)
+            # Extract conditions for else clause, this is optional
+            else_conds = constraint.get(SchemaDefs.ELSE, None)
+
+            # Extract error message if specified, this is optional
+            err_msg = constraint.get(SchemaDefs.ERRMSG, None)
+
+            valid = False
+            # Check whether the dependency conditions satisfied
             for dep_field, conds in dependent_conds.items():
                 subschema = {dep_field: conds}
                 temp_validator = RuleValidator(
                     subschema,
                     allow_unknown=True,
                     error_handler=CustomErrorHandler(subschema))
-                if not temp_validator.validate(self.document):
+                if operator == 'OR':
+                    valid = valid or temp_validator.validate(self.document)
+                # Evaluate as logical AND operation
+                elif not temp_validator.validate(self.document):
                     valid = False
                     break
 
-            # If dependencies satisfied validate the conditions for self
+            subschema = None
+            # If dependencies satisfied validate Then clause
             if valid:
-                subschema = {field: self_conds}
+                subschema = {field: then_conds}
+            elif else_conds:  # If dependencies not satisfied validate Else clause, if there's any
+                subschema = {field: else_conds}
+
+            if subschema:
                 temp_validator = RuleValidator(
-                    subschema, error_handler=CustomErrorHandler(subschema))
-                temp_validator.validate({field: value})
-                errors = temp_validator.errors.items()
-                for error in errors:
-                    self._error(field, f'{str(error)} for {dependent_conds}')
+                    subschema,
+                    allow_unknown=True,
+                    error_handler=CustomErrorHandler(subschema))
+                if not temp_validator.validate(self.document):
+                    if err_msg:
+                        self._error(field, err_msg)
+                    else:
+                        errors = temp_validator.errors.items()
+                        for error in errors:
+                            self._error(field,
+                                        f'{str(error)} for {dependent_conds}')
 
     def _validate_temporalrules(self, temporalrules: dict[Mapping], field: str,
                                 value: object):
         """ Validate the list of longitudial checks specified for a field.
-                        
+        
         Args:
-            temporalrules (dict[Mapping]): Longitudial checks definitions the variable
+            temporalrules (dict[Mapping]): Longitudial checks definitions for the variable
             field (str): Variable name
             value (object): Variable value
-        
-         Raises:
+    
+        Raises:
             ValidationException: If DataHandler or primary key not set
-        
+    
         Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
         The rule's arguments are validated against this schema:
             {'type': 'dict',
              'schema': {'orderby': {'type': 'string', 'required': True, 'empty': False},
-                        'constraints': {'type': 'list', 
+                        'constraints': {'type': 'list',
                                         'schema': {'type': 'dict',
                                                     'schema': {'previous': {'type': 'dict', 'required': True, 'empty': False},
                                                                 'current': {'type': 'dict', 'required': True, 'empty': False}
@@ -386,6 +418,7 @@ class RuleValidator(Validator):
                 prev_schema = {field: prev_conds}
                 curr_conds = constraint[SchemaDefs.CURRENT]
                 curr_schema = {field: curr_conds}
+                err_msg = constraint.get(SchemaDefs.ERRMSG, None)
 
                 prev_validator = RuleValidator(
                     prev_schema,
@@ -394,11 +427,40 @@ class RuleValidator(Validator):
                 if prev_validator.validate(prev_ins):
                     temp_validator = RuleValidator(
                         curr_schema,
+                        allow_unknown=True,
                         error_handler=CustomErrorHandler(curr_schema))
-                    temp_validator.validate({field: value})
-                    errors = temp_validator.errors.items()
-                    for error in errors:
-                        self._error(
-                            field,
-                            f'{str(error)} in current visit for {prev_conds} in previous visit'
-                        )
+                    if not temp_validator.validate({field: value}):
+                        if err_msg:
+                            self._error(field, err_msg)
+                        else:
+                            errors = temp_validator.errors.items()
+                            for error in errors:
+                                self._error(
+                                    field,
+                                    f'{str(error)} in current visit for {prev_conds} in previous visit'
+                                )
+
+    def _validate_logic(self, logic: dict[Mapping], field: str, value: object):
+        """ Validate a mathematical formula/expression.
+
+        Args:
+            logic (dict[Mapping]): Validation logic specified in the rule definition
+            field (str): Variable name
+            value (object): Variable value
+    
+        Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
+        The rule's arguments are validated against this schema:
+            {'type': 'dict',
+             'schema': {'formula': {'type': 'dict', 'required': True, 'empty': False},
+                        'errmsg': {'type': 'string', 'required': False, 'empty': False}
+                       }
+            }
+    
+        """
+
+        formula = logic[SchemaDefs.FORMULA]
+        err_msg = logic.get(SchemaDefs.ERRMSG, None)
+        if not err_msg:
+            err_msg = f'Formula {formula} not satisfied'
+        if not jsonLogic(formula, self.document):
+            self._error(field, err_msg)

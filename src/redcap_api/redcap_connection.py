@@ -394,7 +394,7 @@ class REDCapConnection:
                                                     If not specified all records exported.
             forms (list[str], optional): List of forms to be included
             events (list[str], optional): List of events to be included
-            filters (str, optional): String of logic text (e.g., [age] > 30) for filtering the data to be returned 
+            filters (str, optional): String of logic text (e.g., [age] > 30) for filtering the data to be returned
 
         Returns:
             str | bool: List of records in JSON format string or False if an error occured

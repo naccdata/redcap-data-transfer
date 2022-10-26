@@ -31,7 +31,7 @@ class QualityCheck:
             rules_dir (str): Location where rule definitions are stored
             rules_type (str): Rule definitions type - yaml or json
             forms (list[str]): List of form names to load the rule definitions
-            strict (bool, optional): Validation mode. Defaults to True. 
+            strict (bool, optional): Validation mode. Defaults to True.
                                      If False, unknown forms/fields are skipped from validation
         """
 
@@ -71,7 +71,7 @@ class QualityCheck:
             forms (list[str]): List of form names to load the rule definitions
 
         Raises:
-            QualityCheckException: If there is an schema error 
+            QualityCheckException: If there is an schema error
                                    or if some form definitons are missing in strict mode
         """
 

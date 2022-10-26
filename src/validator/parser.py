@@ -33,7 +33,7 @@ class Parser:
             forms (list[str]): List of form names to load the rule definitions
 
         Returns:
-            dict[str, Mapping[str, object]: Schema object created from rule definitions, 
+            dict[str, Mapping[str, object]: Schema object created from rule definitions,
             bool: True if all form definitions successfully parsed
         """
 
