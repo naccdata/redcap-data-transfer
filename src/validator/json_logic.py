@@ -1,7 +1,8 @@
-# This code is from json-logic-py GitHub project by nadirizr
-# https://github.com/nadirizr/json-logic-py
-# Which is a Python implementation of the following jsonLogic JS library:
-# https://github.com/jwadhams/json-logic-js
+""" This code is from json-logic-py GitHub project by nadirizr
+    https://github.com/nadirizr/json-logic-py
+    Which is a Python implementation of the following jsonLogic JS library,
+    https://github.com/jwadhams/json-logic-js
+""" 
 
 from functools import reduce
 import logging
@@ -83,7 +84,7 @@ def merge(*args):
     """Implements the 'merge' operator for merging lists."""
     ret = []
     for arg in args:
-        if isinstance(arg, list) or isinstance(arg, tuple):
+        if isinstance(arg, (list, tuple)):
             ret += list(arg)
         else:
             ret.append(arg)
@@ -116,7 +117,7 @@ def missing(data, *args):
     return ret
 
 
-def missing_some(data, min_required, args):
+def missing_some(data, args, min_required=1):
     """Implements the missing_some operator for finding missing variables."""
     if min_required < 1:
         return []
@@ -134,32 +135,32 @@ def missing_some(data, min_required, args):
 
 
 operations = {
-    "==": soft_equals,
-    "===": hard_equals,
-    "!=": lambda a, b: not soft_equals(a, b),
-    "!==": lambda a, b: not hard_equals(a, b),
-    ">": lambda a, b: less(b, a),
-    ">=": lambda a, b: less(b, a) or soft_equals(a, b),
-    "<": less,
-    "<=": less_or_equal,
-    "!": lambda a: not a,
-    "!!": bool,
-    "%": lambda a, b: a % b,
-    "and": lambda *args: reduce(lambda total, arg: total and arg, args, True),
-    "or": lambda *args: reduce(lambda total, arg: total or arg, args, False),
-    "?:": lambda a, b, c: b if a else c,
-    "if": if_,
-    "log": lambda a: logger.info(a) or a,
-    "in": lambda a, b: a in b if "__contains__" in dir(b) else False,
-    "cat": lambda *args: "".join(str(arg) for arg in args),
-    "+": plus,
-    "*": lambda *args: reduce(lambda total, arg: total * float(arg), args, 1),
-    "-": minus,
-    "/": lambda a, b=None: a if b is None else float(a) / float(b),
-    "min": lambda *args: min(args),
-    "max": lambda *args: max(args),
-    "merge": merge,
-    "count": lambda *args: sum(1 if a else 0 for a in args),
+    '==': soft_equals,
+    '===': hard_equals,
+    '!=': lambda a, b: not soft_equals(a, b),
+    '!==': lambda a, b: not hard_equals(a, b),
+    '>': lambda a, b: less(b, a),
+    '>=': lambda a, b: less(b, a) or soft_equals(a, b),
+    '<': less,
+    '<=': less_or_equal,
+    '!': lambda a: not a,
+    '!!': bool,
+    '%': lambda a, b: a % b,
+    'and': lambda *args: reduce(lambda total, arg: total and arg, args, True),
+    'or': lambda *args: reduce(lambda total, arg: total or arg, args, False),
+    '?:': lambda a, b, c: b if a else c,
+    'if': if_,
+    'log': lambda a: logger.info(a) or a,
+    'in': lambda a, b: a in b if '__contains__' in dir(b) else False,
+    'cat': lambda *args: ''.join(str(arg) for arg in args),
+    '+': plus,
+    '*': lambda *args: reduce(lambda total, arg: total * float(arg), args, 1),
+    '-': minus,
+    '/': lambda a, b=None: a if b is None else float(a) / float(b),
+    'min': lambda *args: min(args),
+    'max': lambda *args: max(args),
+    'merge': merge,
+    'count': lambda *args: sum(1 if a else 0 for a in args),
 }
 
 
@@ -190,7 +191,7 @@ def jsonLogic(tests, data=None):
         return missing_some(data, *values)
 
     if operator not in operations:
-        raise ValueError("Unrecognized operation %s" % operator)
+        raise ValueError(f'Unrecognized operation {operator}')
 
     return operations[operator](*values)
     
