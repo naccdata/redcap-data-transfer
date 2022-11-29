@@ -16,7 +16,7 @@ from validator.quality_check import QualityCheck, QualityCheckException
 
 
 class DataHandler:
-    """ Class to read the data from a source REDCap project, validate, 
+    """ Class to read the data from a source REDCap project, validate,
         and write to a destination REDCap project
     """
 
@@ -49,6 +49,8 @@ class DataHandler:
         # Data dictionary for the data entry forms
         # this includes all metadata related to form fields
         self.__data_dict: pd.DataFrame = None
+        # List of checkbox variable names
+        self.__chkboxvars: list[str] = None
         # Object to validate data quality rules
         self.__qual_check: QualityCheck = None
 
@@ -222,6 +224,21 @@ class DataHandler:
             logging.critical(e)
             return False
 
+    def compile_checkbox_varnames(self):
+        """Compile the REDCap variable names for checkbox fields
+        """
+
+        self.__chkboxvars = []
+        chkbx_flds = self.__data_dict[self.__data_dict[REDCapKeys.FLD_TYPE] ==
+                                      'checkbox']
+        for row_dict in chkbx_flds.to_dict(orient='records'):
+            choices = row_dict[REDCapKeys.FLD_CHOICES].split('|')
+            for choice in choices:
+                choice = choice.strip()
+                varname = row_dict[REDCapKeys.FLD_NAME] + '___' + choice.split(
+                    ',')[0]
+                self.__chkboxvars.append(varname)
+
     def validate_variable_names(self) -> bool:
         """ Validate the variable names given in the rule definitions against the REDCap data dictionary
 
@@ -234,9 +251,10 @@ class DataHandler:
         variables = self.__data_dict[REDCapKeys.FLD_NAME].unique()
         for key in schema:
             if key not in variables:
-                found = False
-                logging.error('Invalid variable name "%s" in rule definitions',
-                              key)
+                if key not in self.__chkboxvars:
+                    found = False
+                    logging.error(
+                        'Invalid variable name "%s" in rule definitions', key)
 
         return found
 
@@ -355,7 +373,7 @@ class DataHandler:
 
         Returns:
             list[str]: List of valid record IDs,
-            list[dict[str, str]]: List of valid records, 
+            list[dict[str, str]]: List of valid records,
             list[dict[str, str]]: List of failed records with error messages
         """
 
@@ -384,7 +402,7 @@ class DataHandler:
     def compose_error_report_for_record(self, record: dict[str, str],
                                         errors: dict[str, list[str]],
                                         failed_records: list[dict[str, str]]):
-        """ Create an object to report the validation errors, 
+        """ Create an object to report the validation errors,
             these will be imported to REDCap project in JSON format
 
         Args:

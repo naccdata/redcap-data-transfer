@@ -1,24 +1,33 @@
 """ Module for defining validation rules """
+import logging
 
+from datetime import datetime as dt
 from typing import Mapping
 
 from cerberus.errors import BasicErrorHandler, ValidationError, ErrorTree
 from cerberus.validator import Validator
+
 from validator.datastore import Datastore
+from validator.json_logic import jsonLogic
 
 
 class SchemaDefs:
     """ Class to store schema attribute labels and default values """
 
     TYPE = 'type'
+    OP = 'op'
     IF = 'if'
     THEN = 'then'
+    ELSE = 'else'
     META = 'meta'
     ERRMSG = 'errmsg'
     ORDERBY = 'orderby'
     CONSTRAINTS = 'constraints'
     CURRENT = 'current'
     PREVIOUS = 'previous'
+    CRR_DATE = 'current_date'
+    CRR_YEAR = 'current_year'
+    FORMULA = 'formula'
 
 
 class ValidationException(Exception):
@@ -116,9 +125,9 @@ class RuleValidator(Validator):
                 elif configs[SchemaDefs.TYPE] == 'boolean':
                     data_types[key] = 'bool'
                 elif configs[SchemaDefs.TYPE] == 'date':
-                    data_types[key] = 'datetime.date'
+                    data_types[key] = 'date'
                 elif configs[SchemaDefs.TYPE] == 'datetime':
-                    data_types[key] = 'datetime.datetime'
+                    data_types[key] = 'datetime'
 
         return data_types
 
@@ -175,10 +184,86 @@ class RuleValidator(Validator):
                         record[key] = float(value)
                     elif self.__dtypes[key] == 'bool':
                         record[key] = bool(value)
-            except ValueError:
+                    elif self.__dtypes[key] == 'date':
+                        record[key] = dt.strptime(value, '%Y-%m-%d').date()
+                    elif self.__dtypes[key] == 'datetime':
+                        record[key] = dt.strptime(value, '%Y-%m-%d %H:%M:%S')
+            except ValueError as e:
+                logging.error('Failed to cast value %s to type %s - %s', value,
+                              self.__dtypes[key], e)
                 record[key] = value
 
         return record
+
+    def _validate_max(self, max_value: object, field: str, value: object):
+        """ Override max rule to support validations wrt current date/year
+                           
+        Args:
+            max_value (object): Maximum value specified in the schema def
+            field (str): Variable name
+            value (object): Variable value
+
+            Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
+            The rule's arguments are validated against this schema:
+                {'nullable': False}
+        """
+
+        if max_value == SchemaDefs.CRR_DATE:
+            dtype = self.__dtypes[field]
+            curr_date = dt.now()
+            if dtype == 'date':
+                curr_date = curr_date.date()
+
+            try:
+                if value > curr_date:
+                    self._error(field, 'cannot be greater than current date')
+            except TypeError as e:
+                self._error(field, str(e))
+        elif max_value == SchemaDefs.CRR_YEAR:
+            dtype = self.__dtypes[field]
+            curr_date = dt.now()
+            try:
+                if value.year > curr_date.year:
+                    self._error(field, 'cannot be greater than current year')
+            except (TypeError, AttributeError) as e:
+                self._error(field, str(e))
+        else:
+            super()._validate_max(max_value, field, value)
+
+    def _validate_min(self, min_value: object, field: str, value: object):
+        """ Override min rule to support validations wrt current date/year
+                   
+        Args:
+            min_value (object): Minimum value specified in the schema def
+            field (str): Variable name
+            value (object): Variable value
+
+            Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
+            The rule's arguments are validated against this schema:
+                {'nullable': False}
+        """
+
+        if min_value == SchemaDefs.CRR_DATE:
+            dtype = self.__dtypes[field]
+            curr_date = dt.now()
+            if dtype == 'date':
+                curr_date = curr_date.date()
+
+            try:
+                if value < curr_date:
+                    self._error(field, 'cannot be less than current date')
+            except TypeError as e:
+                self._error(field, str(e))
+        elif min_value == SchemaDefs.CRR_YEAR:
+            dtype = self.__dtypes[field]
+            curr_date = dt.now()
+            try:
+                if value.year < curr_date.year:
+                    self._error(field, 'cannot be less than current year')
+            except (TypeError, AttributeError) as e:
+                self._error(field, str(e))
+        else:
+            super()._validate_min(min_value, field, value)
 
     def _validate_filled(self, filled: bool, field: str, value: object):
         """ Custom method to check whether the 'filled' rule is met.
@@ -194,15 +279,15 @@ class RuleValidator(Validator):
                 {'type': 'boolean'}
         """
 
-        if not filled and value:
+        if not filled and value is not None:
             self._error(field, 'must be empty')
-        elif filled and not value:
+        elif filled and value is None:
             self._error(field, 'cannot be empty')
 
     def _validate_compatibility(self, constraints: list[Mapping], field: str,
                                 value: object):
         """ Validate the list of compatibility checks specified for a field.
-                        
+
         Args:
             constraints (list[Mapping]): List of constraints specified for the variable
             field (str): Variable name
@@ -211,9 +296,12 @@ class RuleValidator(Validator):
         Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
             The rule's arguments are validated against this schema:
                 {'type': 'list',
-                 'schema': {'type': 'dict', 
-                            'schema':{'if': {'type': 'dict', 'required': True, 'empty': False},
-                                      'then': {'type': 'dict', 'required': True, 'empty': False}
+                 'schema': {'type': 'dict',
+                            'schema':{'op': {'type': 'string', 'required': False, 'allowed': ['AND', 'OR']},
+                                      'if': {'type': 'dict', 'required': True, 'empty': False},
+                                      'then': {'type': 'dict', 'required': True, 'empty': False},
+                                      'else': {'type': 'dict', 'required': False, 'empty': False},
+                                      'errmsg': {'type': 'string', 'required': False, 'empty': False}
                                       }
                             }
                 }
@@ -222,51 +310,74 @@ class RuleValidator(Validator):
         # Evaluate each constraint in the list individually,
         # validation fails if any of the constraints fails.
         for constraint in constraints:
-            # Extract conditions for dependent fields
+            # Extract operator if specified, default is AND
+            operator = constraint.get(SchemaDefs.OP, 'AND')
+
+            # Extract conditions for if clause
             dependent_conds = constraint[SchemaDefs.IF]
 
-            # Extract conditions for self (i.e. field being evaluated)
-            self_conds = constraint[SchemaDefs.THEN]
+            # Extract conditions for then clause
+            then_conds = constraint[SchemaDefs.THEN]
 
-            valid = True
-            # Check whether all dependency conditions are valid (evaluated as logical AND operation)
+            # Extract conditions for else clause, this is optional
+            else_conds = constraint.get(SchemaDefs.ELSE, None)
+
+            # Extract error message if specified, this is optional
+            err_msg = constraint.get(SchemaDefs.ERRMSG, None)
+
+            valid = False
+            # Check whether the dependency conditions satisfied
             for dep_field, conds in dependent_conds.items():
                 subschema = {dep_field: conds}
                 temp_validator = RuleValidator(
                     subschema,
                     allow_unknown=True,
                     error_handler=CustomErrorHandler(subschema))
-                if not temp_validator.validate(self.document):
+                if operator == 'OR':
+                    valid = valid or temp_validator.validate(self.document)
+                # Evaluate as logical AND operation
+                elif not temp_validator.validate(self.document):
                     valid = False
                     break
 
-            # If dependencies satisfied validate the conditions for self
+            subschema = None
+            # If dependencies satisfied validate Then clause
             if valid:
-                subschema = {field: self_conds}
+                subschema = {field: then_conds}
+            elif else_conds:  # If dependencies not satisfied validate Else clause, if there's any
+                subschema = {field: else_conds}
+
+            if subschema:
                 temp_validator = RuleValidator(
-                    subschema, error_handler=CustomErrorHandler(subschema))
-                temp_validator.validate({field: value})
-                errors = temp_validator.errors.items()
-                for error in errors:
-                    self._error(field, f'{str(error)} for {dependent_conds}')
+                    subschema,
+                    allow_unknown=True,
+                    error_handler=CustomErrorHandler(subschema))
+                if not temp_validator.validate(self.document):
+                    if err_msg:
+                        self._error(field, err_msg)
+                    else:
+                        errors = temp_validator.errors.items()
+                        for error in errors:
+                            self._error(field,
+                                        f'{str(error)} for {dependent_conds}')
 
     def _validate_temporalrules(self, temporalrules: dict[Mapping], field: str,
                                 value: object):
         """ Validate the list of longitudial checks specified for a field.
-                        
+        
         Args:
-            temporalrules (dict[Mapping]): Longitudial checks definitions the variable
+            temporalrules (dict[Mapping]): Longitudial checks definitions for the variable
             field (str): Variable name
             value (object): Variable value
-        
-         Raises:
+    
+        Raises:
             ValidationException: If DataHandler or primary key not set
-        
+    
         Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
         The rule's arguments are validated against this schema:
             {'type': 'dict',
              'schema': {'orderby': {'type': 'string', 'required': True, 'empty': False},
-                        'constraints': {'type': 'list', 
+                        'constraints': {'type': 'list',
                                         'schema': {'type': 'dict',
                                                     'schema': {'previous': {'type': 'dict', 'required': True, 'empty': False},
                                                                 'current': {'type': 'dict', 'required': True, 'empty': False}
@@ -307,6 +418,7 @@ class RuleValidator(Validator):
                 prev_schema = {field: prev_conds}
                 curr_conds = constraint[SchemaDefs.CURRENT]
                 curr_schema = {field: curr_conds}
+                err_msg = constraint.get(SchemaDefs.ERRMSG, None)
 
                 prev_validator = RuleValidator(
                     prev_schema,
@@ -315,11 +427,40 @@ class RuleValidator(Validator):
                 if prev_validator.validate(prev_ins):
                     temp_validator = RuleValidator(
                         curr_schema,
+                        allow_unknown=True,
                         error_handler=CustomErrorHandler(curr_schema))
-                    temp_validator.validate({field: value})
-                    errors = temp_validator.errors.items()
-                    for error in errors:
-                        self._error(
-                            field,
-                            f'{str(error)} in current visit for {prev_conds} in previous visit'
-                        )
+                    if not temp_validator.validate({field: value}):
+                        if err_msg:
+                            self._error(field, err_msg)
+                        else:
+                            errors = temp_validator.errors.items()
+                            for error in errors:
+                                self._error(
+                                    field,
+                                    f'{str(error)} in current visit for {prev_conds} in previous visit'
+                                )
+
+    def _validate_logic(self, logic: dict[Mapping], field: str, value: object):
+        """ Validate a mathematical formula/expression.
+
+        Args:
+            logic (dict[Mapping]): Validation logic specified in the rule definition
+            field (str): Variable name
+            value (object): Variable value
+    
+        Note: Don't remove below docstring, Cerberus uses it to validate the schema definition.
+        The rule's arguments are validated against this schema:
+            {'type': 'dict',
+             'schema': {'formula': {'type': 'dict', 'required': True, 'empty': False},
+                        'errmsg': {'type': 'string', 'required': False, 'empty': False}
+                       }
+            }
+    
+        """
+
+        formula = logic[SchemaDefs.FORMULA]
+        err_msg = logic.get(SchemaDefs.ERRMSG, None)
+        if not err_msg:
+            err_msg = f'Formula {formula} not satisfied'
+        if not jsonLogic(formula, self.document):
+            self._error(field, err_msg)

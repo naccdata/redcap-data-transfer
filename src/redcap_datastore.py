@@ -30,7 +30,7 @@ class REDCapDatastore(Datastore):
     def get_previous_instance(
             self, orderby: str,
             current_ins: dict[str, str]) -> dict[str, str] | bool:
-        """ Overriding the abstract method, 
+        """ Overriding the abstract method,
         get the previous instance of the specified record
 
         Args:

@@ -67,6 +67,8 @@ def main():
     # Check whether source and destination project settings matches,
     logging.info('Comparing source and destination project compatibility...')
     if data_handler.compare_project_settings():
+        data_handler.compile_checkbox_varnames()
+
         # Create QualityChecker instance to validate data
         if not data_handler.set_quality_checker(
                 Params.RULES_DIR, Params.RULE_DEFS_TYPE, Params.STRICT_MODE):
